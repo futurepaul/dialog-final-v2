@@ -1,5 +1,6 @@
-use dialog_lib::{clean_test_storage, Dialog};
+use dialog_lib::Dialog;
 use nostr_sdk::prelude::*;
+use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::time::Duration;
 

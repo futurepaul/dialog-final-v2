@@ -34,7 +34,7 @@ async fn test_dialog_complete() {
 
     // Give a moment for the event to be processed
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-    
+
     let notes = dialog.list_notes(20).await.unwrap();
     println!("Found {} total notes", notes.len());
 
