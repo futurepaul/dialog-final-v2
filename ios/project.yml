@@ -1,0 +1,41 @@
+name: DialogApp
+options:
+  bundleIdPrefix: com.dialog
+  deploymentTarget:
+    iOS: 18.0
+  developmentLanguage: en
+  xcodeVersion: "15.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+  generateEmptyDirectories: true
+  useBaseInternationalization: false
+
+settings:
+  SWIFT_VERSION: 6.0
+  ENABLE_PREVIEWS: YES
+  ENABLE_USER_SCRIPT_SANDBOXING: NO
+  SWIFT_STRICT_CONCURRENCY: complete
+  SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY: YES
+
+targets:
+  DialogApp:
+    type: application
+    platform: iOS
+    productName: DialogApp
+    sources: 
+      - path: DialogApp/Sources
+        name: Sources
+        createIntermediateGroups: true
+      - path: DialogApp/Resources
+        name: Resources
+        createIntermediateGroups: true
+    settings:
+      PRODUCT_NAME: DialogApp
+      PRODUCT_BUNDLE_IDENTIFIER: com.dialog.app
+      INFOPLIST_FILE: DialogApp/Resources/Info.plist
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      DEVELOPMENT_ASSET_PATHS: DialogApp/Preview
+    scheme:
+      gatherCoverageData: true
+      commandLineArguments:
+        "-com.apple.CoreData.SQLDebug 1": false

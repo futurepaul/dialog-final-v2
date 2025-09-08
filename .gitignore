@@ -1,5 +1,13 @@
 examples
-dialog_lib/nak-negentropy
+dialog_lib/vendor/nak-negentropy
 dialog_cli/target/
 *.swp
 .DS_Store
+
+# iOS
+ios/.env
+ios/DialogApp.xcodeproj
+ios/.xcodegen_cache
+DerivedData/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
