@@ -35,6 +35,8 @@ jobs:
     
     - name: Run tests
       working-directory: dialog_lib
+      env:
+        DIALOG_DATA_DIR: ${{ runner.temp }}/dialog-${{ github.run_id }}
       run: cargo test --verbose -- --test-threads=1 --nocapture
     
     - name: Run clippy

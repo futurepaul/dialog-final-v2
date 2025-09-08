@@ -12,6 +12,9 @@ async fn test_dialog_complete() {
     let text = "Test note #test #example";
     let id = dialog.create_note(text).await.unwrap();
 
+    // Small delay for async database ingestion
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
     // Should find it immediately
     let notes = dialog.list_notes(10).await.unwrap();
     assert!(
@@ -32,8 +35,8 @@ async fn test_dialog_complete() {
     let secret_id = dialog.create_note(secret_text).await.unwrap();
     println!("Created secret note with id: {}", secret_id);
 
-    // Give a moment for the event to be processed
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    // Small delay for async database ingestion
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
     let notes = dialog.list_notes(20).await.unwrap();
     println!("Found {} total notes", notes.len());
@@ -91,8 +94,8 @@ async fn test_dialog_complete() {
         dialog.create_note(&batch_text).await.unwrap();
     }
 
-    // Give time for all batch notes to be processed
-    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    // Small delay for async database ingestion of batch
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
     // Verify all batch notes exist
     let batch_notes = dialog.list_by_tag("batch", 20).await.unwrap();
