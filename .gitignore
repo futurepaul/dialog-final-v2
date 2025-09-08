@@ -1,2 +1,5 @@
 examples
-dialog_lib/vendor/nak-negentropy
+dialog_lib/nak-negentropy
+dialog_cli/target/
+*.swp
+.DS_Store

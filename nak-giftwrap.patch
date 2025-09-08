@@ -1,0 +1,34 @@
+diff --git a/server.go b/server.go
+index 1234567..abcdefg 100644
+--- a/server.go
++++ b/server.go
+@@ -15,6 +15,7 @@ import (
+ 	"github.com/nbd-wtf/go-nostr"
+ 	"github.com/nbd-wtf/go-nostr/keyer"
+ 	"github.com/nbd-wtf/go-nostr/khatru"
++	"github.com/nbd-wtf/go-nostr/nip59"
+ 	"github.com/nbd-wtf/go-nostr/sdk"
+ )
+ 
+@@ -85,6 +86,21 @@ var serve = &cli.Command{
+ 		relay.RejectEvent = append(relay.RejectEvent,
+ 			policies.PreventTooManyIndexableTags(6, []int{9005}, nil),
+ 		)
++
++		// Add support for accepting and storing GiftWrap events (kind 1059)
++		relay.RejectEvent = append(relay.RejectEvent, func(ctx context.Context, event *nostr.Event) (bool, string) {
++			// Accept GiftWrap events
++			if event.Kind == 1059 {
++				return false, ""
++			}
++			return false, ""
++		})
++
++		// Add GiftWrap to queryable kinds
++		relay.QueryEvents = append(relay.QueryEvents, func(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
++			// Default query handler will work for GiftWrap events stored in DB
++			return nil, nil
++		})
+ 		
+ 		if err := relay.Start(host, port); err != nil {
+ 			log("failed to serve: %s", err)

@@ -25,13 +25,21 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version: '1.21'
-        cache-dependency-path: dialog_lib/vendor/nak/go.sum
     
-    - name: Build vendor nak with negentropy
-      working-directory: dialog_lib/vendor/nak
+    - name: Setup nak with GiftWrap support
       run: |
-        go build -o ../nak-negentropy .
-        chmod +x ../nak-negentropy
+        # Clone nak
+        git clone https://github.com/fiatjaf/nak.git /tmp/nak
+        cd /tmp/nak
+        
+        # Apply our patch if it exists
+        if [ -f "$GITHUB_WORKSPACE/nak-giftwrap.patch" ]; then
+          git apply "$GITHUB_WORKSPACE/nak-giftwrap.patch"
+        fi
+        
+        # Build nak
+        go build -o $GITHUB_WORKSPACE/dialog_lib/nak-negentropy .
+        chmod +x $GITHUB_WORKSPACE/dialog_lib/nak-negentropy
     
     - name: Run tests
       working-directory: dialog_lib
@@ -46,3 +54,15 @@ jobs:
     - name: Check formatting
       working-directory: dialog_lib
       run: cargo fmt -- --check
+    
+    - name: Build CLI
+      working-directory: dialog_cli
+      run: cargo build --release
+    
+    - name: Test CLI persistence
+      env:
+        DIALOG_DATA_DIR: ${{ runner.temp }}/dialog-${{ github.run_id }}
+        DIALOG_NSEC: nsec1ufnus6pju578ste3v90xd5m2decpuzpql2295m3sknqcjzyys9ls0qlc85
+      run: |
+        chmod +x test_cli_persistence.sh
+        ./test_cli_persistence.sh

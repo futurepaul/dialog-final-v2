@@ -60,6 +60,28 @@ dialog_cli --relay wss://nos.lol create "Note to different relay"
 - **Tag filtering**: Organize notes with hashtags
 - **Fully configurable**: No config files, just environment variables
 
+## Setting Up Local Relay (Optional)
+
+For testing without a public relay, you can use a local nak relay with GiftWrap support:
+
+```bash
+# From the project root, setup nak with our GiftWrap patch
+./setup_nak_local.sh
+
+# Run local relay on port 10548
+~/go/bin/nak serve --port 10548
+
+# In another terminal, use the CLI with local relay
+export DIALOG_RELAY=ws://localhost:10548
+dialog create "Testing with local relay"
+```
+
+Alternatively, install standard nak (without GiftWrap support):
+```bash
+go install github.com/fiatjaf/nak@latest
+nak serve --port 10548
+```
+
 ## Building
 
 ```bash

@@ -27,7 +27,7 @@ impl TestServer {
 
         // Start nak server with negentropy support
         println!("Starting nak server with negentropy on port 10548...");
-        let process = Command::new("./vendor/nak-negentropy")
+        let process = Command::new("./nak-negentropy")
             .args(&["serve", "--port", "10548"])
             .spawn()
             .expect("Failed to start nak server");
@@ -40,7 +40,7 @@ impl TestServer {
     }
 
     pub async fn create_dialog(&self) -> Dialog {
-        Dialog::new(TEST_NSEC, TEST_RELAY_URL)
+        Dialog::new_with_relay(TEST_NSEC, TEST_RELAY_URL)
             .await
             .expect("Failed to create Dialog")
     }
