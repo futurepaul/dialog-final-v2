@@ -32,6 +32,9 @@ async fn test_dialog_complete() {
     let secret_id = dialog.create_note(secret_text).await.unwrap();
     println!("Created secret note with id: {}", secret_id);
 
+    // Give a moment for the event to be processed
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    
     let notes = dialog.list_notes(20).await.unwrap();
     println!("Found {} total notes", notes.len());
 
