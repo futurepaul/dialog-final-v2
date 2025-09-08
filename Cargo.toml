@@ -1,0 +1,7 @@
+[workspace]
+members = [
+  "dialog_lib",
+  "dialog_cli",
+  "dialog_uniffi"
+]
+resolver = "2"
