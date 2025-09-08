@@ -4,3 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow = { version = "1.0.99", default-features = false }
+nostr-ndb = "0.43.0"
+nostr-sdk = "0.43.0"
+serde = { version = "1.0.219", default-features = false }
+serde_json = { version = "1.0.143", default-features = false }
+thiserror = { version = "2.0.16", default-features = false }
+time = { version = "0.3.43", default-features = false }
+tokio = { version = "1.47.1", default-features = false, features = ["rt-multi-thread"] }
+url = { version = "2.5.7", default-features = false }
