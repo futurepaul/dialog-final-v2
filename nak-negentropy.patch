@@ -1,14 +1,12 @@
 diff --git a/serve.go b/serve.go
-index 1234567..abcdefg 100644
+index 4180d81..c96b6ba 100644
 --- a/serve.go
 +++ b/serve.go
-@@ -72,6 +72,9 @@ var serve = &cli.Command{
- 		rl := khatru.NewRelay()
- 		rl.Info.Name = "nak relay"
- 		rl.Info.Description = "small local relay for debugging and development"
-+		
-+		// Enable negentropy for efficient sync
+@@ -72,6 +72,7 @@ var serve = &cli.Command{
+ 		rl.Info.Version = version
+ 
+ 		rl.UseEventstore(db, 1_000_000)
 +		rl.Negentropy = true
  
- 		rl.StoreEvent = append(rl.StoreEvent, db.SaveEvent)
- 		rl.QueryEvents = append(rl.QueryEvents, db.QueryEvents)
+ 		started := make(chan bool)
+ 		exited := make(chan error)
