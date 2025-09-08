@@ -47,7 +47,7 @@ Key points:
 
 Testing (local):
 - Unit tests for tag parsing and model conversions.
-- Integration test: start library with empty DB, create note (offline), assert present; then start relay, call a sync function, assert published.
+- Integration test: start library with empty DB, create note (offline), assert present; then start a dedicated test relay with `nak serve --port 10548`, call a sync function, assert published.
 
 Deliverables of Phase 1:
 - `dialog_lib` crate with APIs above.
@@ -74,7 +74,7 @@ Notes:
 
 Testing:
 - Snapshot tests for `list` output, including `--watch` initial backlog format (stream smoke-checked).
-- E2E: run against local nak relay up/down; verify offline-first save and warning-only on publish failure.
+- E2E: run against dedicated test relay `ws://localhost:10548` up/down; verify offline-first save and warning-only on publish failure.
 
 ---
 
