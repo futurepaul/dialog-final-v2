@@ -4,6 +4,7 @@ use thiserror::Error;
 
 pub mod note;
 pub mod query;
+pub mod watch;
 
 pub use note::Note;
 
@@ -31,7 +32,7 @@ pub struct Dialog {
 }
 
 impl Dialog {
-    pub async fn new(nsec: &str, relay_url: &str) -> Result<Self> {
+    pub async fn new(nsec: &str) -> Result<Self> {
         let keys = Keys::parse(nsec)?;
 
         // Use pubkey in path for isolation
@@ -44,11 +45,23 @@ impl Dialog {
             .database(database)
             .build();
 
-        // Add relay
-        client.add_relay(relay_url).await?;
-        client.connect().await;
-
         Ok(Self { client, keys })
+    }
+
+    pub async fn new_with_relay(nsec: &str, relay_url: &str) -> Result<Self> {
+        let dialog = Self::new(nsec).await?;
+        dialog.connect_relay(relay_url).await?;
+        Ok(dialog)
+    }
+
+    pub async fn connect_relay(&self, url: &str) -> Result<()> {
+        self.client.add_relay(url).await?;
+        self.client.connect().await;
+        Ok(())
+    }
+
+    pub fn public_key(&self) -> PublicKey {
+        self.keys.public_key()
     }
 }
 
@@ -86,5 +99,10 @@ pub fn clean_test_storage(pubkey: &str) -> Result<()> {
     if data_dir.exists() {
         std::fs::remove_dir_all(data_dir)?;
     }
+    Ok(())
+}
+
+pub fn validate_nsec(nsec: &str) -> Result<()> {
+    Keys::parse(nsec)?;
     Ok(())
 }
