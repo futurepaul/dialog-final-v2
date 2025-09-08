@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# Pre-commit hook for dialog project
+# Runs cargo fmt check and clippy before committing
+
+set -e
+
+echo "Running pre-commit checks..."
+
+# Check if we have Rust files in the commit
+if git diff --cached --name-only | grep -q "\.rs$"; then
+    echo "Checking Rust formatting..."
+    
+    # Check dialog_lib formatting
+    if [ -d "dialog_lib" ]; then
+        cd dialog_lib
+        if ! cargo fmt -- --check; then
+            echo "❌ Rust formatting issues in dialog_lib!"
+            echo "Run 'cargo fmt' in dialog_lib/ to fix"
+            exit 1
+        fi
+        cd ..
+    fi
+    
+    # Check dialog_cli formatting
+    if [ -d "dialog_cli" ]; then
+        cd dialog_cli
+        if ! cargo fmt -- --check; then
+            echo "❌ Rust formatting issues in dialog_cli!"
+            echo "Run 'cargo fmt' in dialog_cli/ to fix"
+            exit 1
+        fi
+        cd ..
+    fi
+    
+    echo "✅ Rust formatting check passed"
+    
+    # Optional: Run clippy
+    echo "Running clippy..."
+    if [ -d "dialog_lib" ]; then
+        cd dialog_lib
+        if ! cargo clippy --quiet -- -D warnings 2>/dev/null; then
+            echo "⚠️  Clippy warnings in dialog_lib (not blocking commit)"
+        fi
+        cd ..
+    fi
+fi
+
+echo "✅ Pre-commit checks passed"
+exit 0

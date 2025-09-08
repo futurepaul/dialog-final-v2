@@ -22,11 +22,11 @@ struct Cli {
     /// Override the relay URL (default: ws://localhost:10548)
     #[arg(short, long)]
     relay: Option<String>,
-    
+
     /// Set the data directory (default: OS-specific)
     #[arg(short, long)]
     data_dir: Option<String>,
-    
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -39,22 +39,22 @@ enum Commands {
         /// Note text (hashtags will be parsed automatically)
         text: String,
     },
-    
+
     /// List notes
     List {
         /// Maximum number of notes to display
         #[arg(short, long, default_value = "10")]
         limit: usize,
-        
+
         /// Filter by tag
         #[arg(short, long)]
         tag: Option<String>,
-        
+
         /// Watch for new notes in real-time
         #[arg(long)]
         watch: bool,
     },
-    
+
     /// Show your public key
     Pubkey,
 }
@@ -64,7 +64,8 @@ fn get_nsec() -> Result<String> {
         CliError::MissingEnv(
             "DIALOG_NSEC environment variable not set.\n\
             Please set it to your nsec key:\n  \
-            export DIALOG_NSEC=nsec1...".to_string()
+            export DIALOG_NSEC=nsec1..."
+                .to_string(),
         )
     })
 }
@@ -78,50 +79,50 @@ fn get_relay_url(cli_override: Option<String>) -> String {
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
-    
+
     // Get nsec from environment
     let nsec = get_nsec()?;
-    
+
     // Set data dir if provided
     if let Some(data_dir) = &cli.data_dir {
         unsafe {
             std::env::set_var("DIALOG_DATA_DIR", data_dir);
         }
     }
-    
+
     // Create dialog instance
     let dialog = Dialog::new(&nsec).await?;
-    
+
     // Connect to relay
     let relay_url = get_relay_url(cli.relay);
     if let Err(e) = dialog.connect_relay(&relay_url).await {
         eprintln!("Warning: Could not connect to relay {}: {}", relay_url, e);
         eprintln!("Running in offline mode.");
     }
-    
+
     // Handle commands
     match cli.command {
         Commands::Create { text } => {
             let id = dialog.create_note(&text).await?;
             println!("Created note: {}", id.to_bech32()?);
-            
+
             // Parse and display tags
             let tags: Vec<_> = text
                 .split_whitespace()
                 .filter(|w| w.starts_with('#') && w.len() > 1)
                 .map(|t| &t[1..])
                 .collect();
-            
+
             if !tags.is_empty() {
                 println!("Tags: {}", tags.join(", "));
             }
         }
-        
+
         Commands::List { limit, tag, watch } => {
             if watch {
                 // Watch mode - show existing notes first, then subscribe to new ones
                 println!("Entering watch mode. Press Ctrl+C to exit.\n");
-                
+
                 // First, show existing notes
                 let existing_notes = if let Some(ref tag) = tag {
                     println!("=== Existing notes with tag: #{} ===", tag);
@@ -130,7 +131,7 @@ async fn main() -> Result<()> {
                     println!("=== Recent notes ===");
                     dialog.list_notes(limit).await?
                 };
-                
+
                 if existing_notes.is_empty() {
                     println!("No existing notes found.");
                 } else {
@@ -143,11 +144,11 @@ async fn main() -> Result<()> {
                     }
                     println!("\n---");
                 }
-                
+
                 // Now watch for notes using subscribe - runs forever
                 println!("\nWatching for new notes...");
                 let mut receiver = dialog.watch_notes().await?;
-                
+
                 // Handle incoming notes
                 while let Some(note) = receiver.recv().await {
                     println!("\n🆕 [{}]", note.created_at.to_human_datetime());
@@ -164,7 +165,7 @@ async fn main() -> Result<()> {
                 } else {
                     dialog.list_notes(limit).await?
                 };
-                
+
                 if notes.is_empty() {
                     println!("No notes found.");
                 } else {
@@ -179,11 +180,11 @@ async fn main() -> Result<()> {
                 }
             }
         }
-        
+
         Commands::Pubkey => {
             println!("Your public key: {}", dialog.public_key().to_bech32()?);
         }
     }
-    
+
     Ok(())
 }
