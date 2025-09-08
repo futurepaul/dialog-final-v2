@@ -62,10 +62,10 @@ dialog_cli --relay wss://nos.lol create "Note to different relay"
 
 ## Setting Up Local Relay (Optional)
 
-For testing without a public relay, you can use a local nak relay:
+For testing without a public relay, you can use a local nak relay with negentropy support:
 
 ```bash
-# From the project root, setup nak
+# From the project root, setup nak with negentropy patch
 ./setup_nak_local.sh
 
 # Run local relay on port 10548
@@ -76,13 +76,11 @@ export DIALOG_RELAY=ws://localhost:10548
 dialog create "Testing with local relay"
 ```
 
-Alternatively, install nak directly:
+Alternatively, install nak directly (without negentropy):
 ```bash
 go install github.com/fiatjaf/nak@latest
 nak serve --port 10548
 ```
-
-Note: nak already supports all event kinds including GiftWrap (1059)
 
 ## Building
 

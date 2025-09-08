@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Setup script for nak relay
-# This clones nak and builds it
+# Setup script for nak relay with negentropy support
+# This clones nak, applies negentropy patch, and builds it
 
 set -e
 
@@ -21,7 +21,15 @@ echo "Cloning nak repository..."
 git clone https://github.com/fiatjaf/nak.git
 cd nak
 
-echo "Building nak..."
+# Apply negentropy patch if it exists
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+if [ -f "$SCRIPT_DIR/nak-negentropy.patch" ]; then
+    echo "Applying negentropy patch..."
+    git apply "$SCRIPT_DIR/nak-negentropy.patch"
+    echo "Patch applied successfully!"
+fi
+
+echo "Building nak with negentropy support..."
 go build -o nak
 
 echo "Installing nak to ~/go/bin/..."
@@ -40,4 +48,4 @@ echo ""
 echo "Or add ~/go/bin to your PATH and run:"
 echo "  nak serve --port 10548"
 echo ""
-echo "Note: nak already supports all event kinds including GiftWrap (1059)"
+echo "Note: Patched with negentropy support for efficient sync"

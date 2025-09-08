@@ -26,13 +26,18 @@ jobs:
       with:
         go-version: '1.21'
     
-    - name: Setup nak
+    - name: Setup nak with negentropy
       run: |
         # Clone nak
         git clone https://github.com/fiatjaf/nak.git /tmp/nak
         cd /tmp/nak
         
-        # Build nak (it already supports all event kinds including GiftWrap)
+        # Apply negentropy patch if it exists
+        if [ -f "$GITHUB_WORKSPACE/nak-negentropy.patch" ]; then
+          git apply "$GITHUB_WORKSPACE/nak-negentropy.patch"
+        fi
+        
+        # Build nak with negentropy support
         go build -o $GITHUB_WORKSPACE/dialog_lib/nak-negentropy .
         chmod +x $GITHUB_WORKSPACE/dialog_lib/nak-negentropy
     
