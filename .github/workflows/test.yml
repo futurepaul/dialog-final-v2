@@ -1,0 +1,47 @@
+name: Tests
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+        components: rustfmt, clippy
+    
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+    
+    - name: Build vendor nak with negentropy
+      working-directory: dialog_lib/vendor/nak
+      run: |
+        go build -o ../nak-negentropy .
+        chmod +x ../nak-negentropy
+    
+    - name: Run tests
+      working-directory: dialog_lib
+      run: cargo test --verbose -- --test-threads=1 --nocapture
+    
+    - name: Run clippy
+      working-directory: dialog_lib
+      run: cargo clippy -- -D warnings
+    
+    - name: Check formatting
+      working-directory: dialog_lib
+      run: cargo fmt -- --check

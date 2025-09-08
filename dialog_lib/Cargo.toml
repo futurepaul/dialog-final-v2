@@ -1,19 +1,19 @@
 [package]
 name = "dialog_lib"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
-anyhow = { version = "1.0.99", default-features = false }
-nostr-ndb = "0.43.0"
-nostr-sdk = { version = "0.43.0", features = ["ndb", "nip59", "nip44"] }
-serde = { version = "1.0.219", default-features = false }
-serde_json = { version = "1.0.143", default-features = false }
-thiserror = { version = "2.0.16", default-features = false }
-time = { version = "0.3.43", default-features = false }
-tokio = { version = "1.47.1", default-features = false, features = ["macros", "rt-multi-thread"], package = "tokio" }
-tracing-subscriber = { version = "0.3.20", optional = true }
-url = { version = "2.5.7", default-features = false }
+nostr-sdk = { version = "0.37", features = ["ndb", "nip44"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+directories = "5"
+keyring = { version = "3", optional = true }
 
 [features]
-tracing-subscriber = ["dep:tracing-subscriber"]
+default = ["keyring"]
+
+[dev-dependencies]
+tokio-test = "0.4"

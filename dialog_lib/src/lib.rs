@@ -1,14 +1,69 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+use nostr_sdk::prelude::*;
+use std::path::PathBuf;
+use thiserror::Error;
+
+pub mod note;
+pub mod query;
+
+pub use note::Note;
+
+#[derive(Error, Debug)]
+pub enum DialogError {
+    #[error("Nostr error: {0}")]
+    Nostr(#[from] nostr_sdk::client::Error),
+    #[error("Keys error: {0}")]
+    Keys(#[from] nostr_sdk::key::Error),
+    #[error("NIP-44 error: {0}")]
+    Nip44(#[from] nostr_sdk::nips::nip44::Error),
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Database error: {0}")]
+    Database(String),
+    #[error("Failed to get project directories")]
+    ProjectDirs,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub type Result<T> = std::result::Result<T, DialogError>;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+pub struct Dialog {
+    pub client: Client,
+    pub keys: Keys,
+}
+
+impl Dialog {
+    pub async fn new(nsec: &str, relay_url: &str) -> Result<Self> {
+        let keys = Keys::parse(nsec)?;
+
+        // Use pubkey in path for isolation
+        let db_path = get_data_dir(&keys.public_key().to_hex())?;
+        let database = NdbDatabase::open(db_path.to_string_lossy())
+            .map_err(|e| DialogError::Database(e.to_string()))?;
+
+        let client = Client::builder()
+            .signer(keys.clone())
+            .database(database)
+            .build();
+
+        // Add relay
+        client.add_relay(relay_url).await?;
+        client.connect().await;
+
+        Ok(Self { client, keys })
     }
+}
+
+fn get_data_dir(pubkey: &str) -> Result<PathBuf> {
+    let dirs = directories::ProjectDirs::from("", "", "dialog").ok_or(DialogError::ProjectDirs)?;
+    let data_dir = dirs.data_dir().join(pubkey);
+    std::fs::create_dir_all(&data_dir)?;
+    Ok(data_dir.join("nostrdb"))
+}
+
+pub fn clean_test_storage(pubkey: &str) -> Result<()> {
+    let dirs = directories::ProjectDirs::from("", "", "dialog").ok_or(DialogError::ProjectDirs)?;
+    let data_dir = dirs.data_dir().join(pubkey);
+    if data_dir.exists() {
+        std::fs::remove_dir_all(data_dir)?;
+    }
+    Ok(())
 }

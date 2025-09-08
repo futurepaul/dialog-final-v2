@@ -83,13 +83,13 @@ impl Dialog {
 
 ### Testing Strategy
 - **Unit tests**: Tag parsing from content, self-DM encrypt/decrypt roundtrip
-- **Integration test**: Create offline → present in list; bring relay up → publish succeeds
+- **Integration test**: Create offline → present in list; start `nak serve --port 10548` → sync and assert published
 - **Example**: `examples/smoke.rs` to print last 10 and watch
 
 **Phase 1 Success Criteria**:
 - Import nsec and create encrypted self-DMs locally
 - Store notes in local NostrDB with proper indexing
-- Publish to ws://localhost:10547 when available
+- Publish to ws://localhost:10548 when available
 - List and filter notes by tags (case-insensitive)
 - All milestones pass incrementally
 
@@ -128,7 +128,7 @@ impl Dialog {
 
 ### Testing
 - **Snapshot tests**: List output format including --watch backlog
-- **E2E tests**: Against local nak relay up/down
+- **E2E tests**: Against dedicated test relay `nak serve --port 10548` up/down
 - **Verification**: Offline-first save with warning-only on publish failure
 
 **Phase 2 Success Criteria**:
@@ -217,7 +217,7 @@ pub fn dialog_watch_notes(dialog: &FfiDialog, limit: u32, tags: Vec<String>, cal
 **Phase 4 Success Criteria**:
 - Fragment UI works with dialog_lib backend
 - Notes encrypt/decrypt properly on device
-- iOS app connects to local relay
+- iOS app connects to test relay (nak serve --port 10548)
 - UI updates live via watch functionality
 
 ---
