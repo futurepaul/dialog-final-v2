@@ -91,6 +91,9 @@ async fn test_dialog_complete() {
         dialog.create_note(&batch_text).await.unwrap();
     }
 
+    // Give time for all batch notes to be processed
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
     // Verify all batch notes exist
     let batch_notes = dialog.list_by_tag("batch", 20).await.unwrap();
     assert!(
