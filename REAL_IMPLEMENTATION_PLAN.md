@@ -3,9 +3,9 @@
 ## Core Philosophy
 **SIMPLEST THING THAT COULD POSSIBLY WORK** - No abstractions until proven necessary. Direct use of rust-nostr APIs. Real NIP-44 v2 encryption.
 
-## Phase 1: Minimal dialog_lib (Local-First)
+## Phase 1: Minimal dialog_lib (Local-First) ✅ COMPLETED
 
-### 1.1 Project Setup & Basic Types (~Day 1)
+### 1.1 Project Setup & Basic Types (~Day 1) ✅
 
 **Cargo.toml**
 ```toml
@@ -67,7 +67,7 @@ fn get_data_dir() -> Result<PathBuf> {
 }
 ```
 
-### 1.2 Self-DM Creation with NIP-44 (~Day 2)
+### 1.2 Self-DM Creation with NIP-44 (~Day 2) ✅
 
 **src/note.rs** (~100 lines)
 ```rust
@@ -118,7 +118,7 @@ fn parse_hashtags(text: &str) -> Vec<String> {
 }
 ```
 
-### 1.3 List & Query Notes (~Day 3)
+### 1.3 List & Query Notes (~Day 3) ✅
 
 **src/query.rs** (~120 lines)
 ```rust
@@ -182,7 +182,7 @@ fn extract_tags(event: &Event) -> Vec<String> {
 }
 ```
 
-### 1.4 Integration Test (~Day 4)
+### 1.4 Integration Test (~Day 4) ✅
 
 **tests/integration.rs**
 ```rust
@@ -212,7 +212,7 @@ async fn test_offline_first() {
 }
 ```
 
-## Phase 2: CLI Implementation (~Days 5-6)
+## Phase 2: CLI Implementation (~Days 5-6) 🚧 NEXT
 
 **dialog_cli/Cargo.toml**
 ```toml
