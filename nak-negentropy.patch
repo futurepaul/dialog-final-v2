@@ -2,13 +2,13 @@ diff --git a/serve.go b/serve.go
 index 1234567..abcdefg 100644
 --- a/serve.go
 +++ b/serve.go
-@@ -85,6 +85,9 @@ var serve = &cli.Command{
- 		relay.RejectEvent = append(relay.RejectEvent,
- 			policies.PreventTooManyIndexableTags(6, []int{9005}, nil),
- 		)
-+
-+		// Add negentropy support
-+		relay.AddNegentropy()
- 		
- 		if err := relay.Start(host, port); err != nil {
- 			log("failed to serve: %s", err)
+@@ -72,6 +72,9 @@ var serve = &cli.Command{
+ 		rl := khatru.NewRelay()
+ 		rl.Info.Name = "nak relay"
+ 		rl.Info.Description = "small local relay for debugging and development"
++		
++		// Enable negentropy for efficient sync
++		rl.Negentropy = true
+ 
+ 		rl.StoreEvent = append(rl.StoreEvent, db.SaveEvent)
+ 		rl.QueryEvents = append(rl.QueryEvents, db.QueryEvents)
