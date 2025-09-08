@@ -82,7 +82,7 @@ pub fn clean_test_storage(pubkey: &str) -> Result<()> {
     } else {
         std::env::temp_dir().join("dialog").join(pubkey)
     };
-    
+
     if data_dir.exists() {
         std::fs::remove_dir_all(data_dir)?;
     }
