@@ -9,6 +9,8 @@ enum CliError {
     Dialog(#[from] dialog_lib::DialogError),
     #[error("Bech32 error: {0}")]
     Bech32(#[from] nostr_sdk::nips::nip19::Error),
+    #[error("Key parse error: {0}")]
+    Keys(#[from] nostr_sdk::key::Error),
     #[error("Missing environment variable: {0}")]
     MissingEnv(String),
 }
@@ -19,6 +21,10 @@ type Result<T> = std::result::Result<T, CliError>;
 #[command(name = "dialog")]
 #[command(about = "A privacy-first note-taking system on Nostr", long_about = None)]
 struct Cli {
+    /// Print resolved configuration and exit
+    #[arg(long)]
+    print_config: bool,
+
     /// Override the relay URL (default: ws://localhost:10548)
     #[arg(short, long)]
     relay: Option<String>,
@@ -83,6 +89,23 @@ async fn main() -> Result<()> {
     // Get nsec from environment
     let nsec = get_nsec()?;
 
+    // Resolve relay and data dir before constructing client
+    let relay_url = get_relay_url(cli.relay.clone());
+    let data_dir_env = std::env::var("DIALOG_DATA_DIR").ok();
+
+    if cli.print_config {
+        let keys = Keys::parse(&nsec)?;
+        let pubkey = keys.public_key();
+        println!("Config:");
+        println!("  Pubkey: {}", pubkey.to_bech32()?);
+        println!("  Relay:  {}", relay_url);
+        match data_dir_env {
+            Some(ref dir) => println!("  DataDir: {}", dir),
+            None => println!("  DataDir: <OS default>"),
+        }
+        return Ok(());
+    }
+
     // Set data dir if provided
     if let Some(data_dir) = &cli.data_dir {
         unsafe {
@@ -94,7 +117,7 @@ async fn main() -> Result<()> {
     let dialog = Dialog::new(&nsec).await?;
 
     // Connect to relay
-    let relay_url = get_relay_url(cli.relay);
+    eprintln!("Using relay: {}", relay_url);
     if let Err(e) = dialog.connect_relay(&relay_url).await {
         eprintln!("Warning: Could not connect to relay {}: {}", relay_url, e);
         eprintln!("Running in offline mode.");
