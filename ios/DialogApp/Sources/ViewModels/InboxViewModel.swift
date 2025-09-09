@@ -46,8 +46,8 @@ class InboxViewModel: ObservableObject {
         client.start(listener: listener)
         
         // Connect to a relay so create/list/watch work
-        let relay = ProcessInfo.processInfo.environment["DIALOG_RELAY"] ?? "wss://relay.damus.io"
-        client.sendCommand(cmd: Command.connectRelay(relayUrl: relay))
+        // Hardcode relay for reliability during development
+        client.sendCommand(cmd: Command.connectRelay(relayUrl: "wss://nos.lol"))
         
         // Get initial data (synchronous queries)
         self.notes = client.getNotes(limit: 100, tag: currentTag)
