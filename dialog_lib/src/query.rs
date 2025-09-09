@@ -20,11 +20,14 @@ impl Dialog {
         let mut notes = Vec::new();
         for event in events {
             if let Ok(decrypted) = self.decrypt_event(&event) {
+                let is_read = self.get_read_status(&event.id).await;
                 notes.push(Note {
                     id: event.id,
                     text: decrypted,
                     tags: extract_tags(&event),
                     created_at: event.created_at,
+                    is_read,
+                    is_synced: true, // If it's in DB, it was synced
                 });
             }
         }
@@ -53,11 +56,14 @@ impl Dialog {
         let mut notes = Vec::new();
         for event in events {
             if let Ok(decrypted) = self.decrypt_event(&event) {
+                let is_read = self.get_read_status(&event.id).await;
                 notes.push(Note {
                     id: event.id,
                     text: decrypted,
                     tags: extract_tags(&event),
                     created_at: event.created_at,
+                    is_read,
+                    is_synced: true, // If it's in DB, it was synced
                 });
             }
         }

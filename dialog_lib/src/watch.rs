@@ -51,6 +51,8 @@ impl Dialog {
                                         text: decrypted,
                                         tags: extract_tags(&event),
                                         created_at: event.created_at,
+                                        is_read: false,  // New notes are unread
+                                        is_synced: true, // If we got it from relay, it's synced
                                     };
 
                                     seen_ids.insert(event.id);
@@ -73,6 +75,8 @@ impl Dialog {
                                     text: decrypted,
                                     tags: extract_tags(&event),
                                     created_at: event.created_at,
+                                    is_read: false,  // New notes are unread
+                                    is_synced: true, // If we got it from relay, it's synced
                                 };
 
                                 seen_ids.insert(event.id);

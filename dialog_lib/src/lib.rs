@@ -20,6 +20,8 @@ pub enum DialogError {
     Io(#[from] std::io::Error),
     #[error("Database error: {0}")]
     Database(String),
+    #[error("Event builder error: {0}")]
+    EventBuilder(#[from] nostr_sdk::event::builder::Error),
     #[error("Failed to get project directories")]
     ProjectDirs,
 }
@@ -105,4 +107,91 @@ pub fn clean_test_storage(pubkey: &str) -> Result<()> {
 pub fn validate_nsec(nsec: &str) -> Result<()> {
     Keys::parse(nsec)?;
     Ok(())
+}
+
+impl Dialog {
+    /// Mark a note as read - stores in local database only
+    pub async fn mark_as_read(&self, note_id: &EventId) -> Result<()> {
+        // Create a local-only Kind 30078 event for app data
+        let content = serde_json::json!({
+            "type": "read_status",
+            "note_id": note_id.to_hex(),
+            "is_read": true,
+            "timestamp": Timestamp::now().as_u64()
+        })
+        .to_string();
+
+        let event = EventBuilder::new(Kind::from(30078), content)
+            .tag(Tag::custom(
+                TagKind::SingleLetter(SingleLetterTag::lowercase(Alphabet::D)),
+                vec!["dialog_local_state"],
+            ))
+            .sign(&self.keys)
+            .await?;
+
+        // Save to database but NEVER publish to relays
+        self.client
+            .database()
+            .save_event(&event)
+            .await
+            .map_err(|e| DialogError::Database(e.to_string()))?;
+
+        Ok(())
+    }
+
+    /// Get read status for a note from local state
+    pub async fn get_read_status(&self, note_id: &EventId) -> bool {
+        // Query local database for read status
+        let filter = Filter::new()
+            .author(self.keys.public_key())
+            .kind(Kind::from(30078))
+            .custom_tag(
+                SingleLetterTag::lowercase(Alphabet::D),
+                vec!["dialog_local_state"],
+            )
+            .limit(1000); // Get recent local state events
+
+        if let Ok(events) = self.client.database().query(vec![filter]).await {
+            // Convert to vec first to use rev()
+            let events_vec: Vec<_> = events.into_iter().collect();
+            // Look through events for this note's read status (most recent first)
+            for event in events_vec.iter().rev() {
+                // Parse content to check if it's for this note
+                if let Ok(data) = serde_json::from_str::<serde_json::Value>(&event.content) {
+                    if data["type"] == "read_status" && data["note_id"] == note_id.to_hex() {
+                        return data["is_read"].as_bool().unwrap_or(false);
+                    }
+                }
+            }
+        }
+
+        false // Default to unread
+    }
+
+    /// Mark a note as synced locally
+    pub async fn mark_as_synced(&self, note_id: &EventId) -> Result<()> {
+        let content = serde_json::json!({
+            "type": "sync_status",
+            "note_id": note_id.to_hex(),
+            "is_synced": true,
+            "timestamp": Timestamp::now().as_u64()
+        })
+        .to_string();
+
+        let event = EventBuilder::new(Kind::from(30078), content)
+            .tag(Tag::custom(
+                TagKind::SingleLetter(SingleLetterTag::lowercase(Alphabet::D)),
+                vec!["dialog_local_state"],
+            ))
+            .sign(&self.keys)
+            .await?;
+
+        self.client
+            .database()
+            .save_event(&event)
+            .await
+            .map_err(|e| DialogError::Database(e.to_string()))?;
+
+        Ok(())
+    }
 }

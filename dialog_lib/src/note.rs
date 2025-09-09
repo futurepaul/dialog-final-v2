@@ -7,6 +7,8 @@ pub struct Note {
     pub text: String,
     pub tags: Vec<String>,
     pub created_at: Timestamp,
+    pub is_read: bool,
+    pub is_synced: bool,
 }
 
 impl Dialog {
