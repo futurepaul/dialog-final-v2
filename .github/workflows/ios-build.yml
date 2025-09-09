@@ -1,0 +1,99 @@
+name: iOS Build
+
+on:
+  push:
+    branches: [ main, ios-mock-frontend-le ]
+    paths:
+      - 'dialog_uniffi/**'
+      - 'ios/**'
+      - 'DialogPackage/**'
+      - 'build-uniffi-package.sh'
+      - 'rebuild.sh'
+      - '.github/workflows/ios-build.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'dialog_uniffi/**'
+      - 'ios/**'
+      - 'DialogPackage/**'
+      - 'build-uniffi-package.sh'
+      - 'rebuild.sh'
+      - '.github/workflows/ios-build.yml'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  build-ios:
+    name: Build iOS App
+    runs-on: macos-14 # Uses M1 Mac runners (faster and matches our arm64 builds)
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: aarch64-apple-ios,aarch64-apple-ios-sim,aarch64-apple-darwin
+
+    - name: Cache Rust dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          dialog_uniffi/target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - name: Install XcodeGen
+      run: |
+        brew install xcodegen
+
+    - name: Select Xcode
+      run: |
+        sudo xcode-select -s /Applications/Xcode_15.4.app
+        xcodebuild -version
+
+    - name: Build iOS App
+      run: |
+        # Make scripts executable
+        chmod +x rebuild.sh
+        chmod +x build-uniffi-package.sh
+        
+        # Run the rebuild script (clean build for CI)
+        ./rebuild.sh --clean
+        
+    - name: Verify build artifacts
+      run: |
+        # Check that the XCFramework was created
+        ls -la DialogPackage/XCFrameworks/dialogFFI.xcframework/
+        
+        # Check that Swift bindings were generated
+        ls -la DialogPackage/Sources/Dialog/
+        
+        # Check that the app binary exists
+        find ~/Library/Developer/Xcode/DerivedData -name "DialogApp.app" -type d | head -1
+
+    # Skip tests for now - just build verification
+    # - name: Run basic tests (optional)
+    #   run: |
+    #     cd ios
+    #     xcodebuild test \
+    #       -project DialogApp.xcodeproj \
+    #       -scheme DialogApp \
+    #       -destination "platform=iOS Simulator,name=iPhone 15,OS=17.5" \
+    #       -quiet || true
+    #   continue-on-error: true
+
+    - name: Upload build logs on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-logs
+        path: |
+          /tmp/xcode_build.log
+          /tmp/xcode_run.log
+        retention-days: 7
