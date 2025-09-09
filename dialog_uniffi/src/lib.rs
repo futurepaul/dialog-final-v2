@@ -102,35 +102,10 @@ impl DialogClient {
             }
         });
         
-        // Start watching for new notes
-        let self_clone = self.clone();
-        let handle = rt().spawn(async move {
-            if let Ok(mut receiver) = DIALOG.get().unwrap().watch_notes().await {
-                eprintln!("[uniffi] watch_notes receiver acquired; entering loop");
-                while let Some(lib_note) = receiver.recv().await {
-                    let note = convert_lib_note_to_uniffi(lib_note);
-                    
-                    // Update cache and dedupe
-                    let mut notes_guard = self_clone.notes.write().await;
-                    if notes_guard.contains_key(&note.id) {
-                        notes_guard.insert(note.id.clone(), note.clone());
-                        eprintln!("[uniffi] Emitting Event::NoteUpdated { id={} }", note.id);
-                        let _ = self_clone.event_tx.send(Event::NoteUpdated { note });
-                    } else {
-                        notes_guard.insert(note.id.clone(), note.clone());
-                        eprintln!("[uniffi] Emitting Event::NoteAdded { id={} }", note.id);
-                        let _ = self_clone.event_tx.send(Event::NoteAdded { note });
-                    }
-                }
-            } else {
-                eprintln!("[uniffi] watch_notes() failed to start");
-            }
-        });
-        
-        // Store the watch handle
+        // Attempt to start watch loop immediately; if not connected yet, we'll try again after connect.
         let self_clone = self.clone();
         rt().spawn(async move {
-            *self_clone.watch_handle.write().await = Some(handle);
+            self_clone.maybe_start_watch().await;
         });
         
         // Send initial data
@@ -155,6 +130,29 @@ impl DialogClient {
                         eprintln!("[uniffi] Failed to connect to relay: {}", e);
                     } else {
                         eprintln!("[uniffi] Connected to relay: {}", relay_url);
+                        // After connecting, sync recent data and refresh UI
+                        if let Err(e) = DIALOG.get().unwrap().sync_notes().await {
+                            eprintln!("[uniffi] sync_notes failed: {}", e);
+                        } else {
+                            // Load updated notes and emit NotesLoaded
+                            if let Ok(lib_notes) = DIALOG.get().unwrap().list_notes(100).await {
+                                let mut notes_map = self_clone.notes.write().await;
+                                let mut notes = Vec::new();
+                                for lib_note in lib_notes {
+                                    let note = convert_lib_note_to_uniffi(lib_note);
+                                    notes_map.insert(note.id.clone(), note.clone());
+                                    notes.push(note);
+                                }
+                                // Apply filter if set
+                                let filter = self_clone.current_filter.read().await.clone();
+                                if let Some(tag) = filter {
+                                    notes.retain(|n| n.tags.contains(&tag));
+                                }
+                                let _ = self_clone.event_tx.send(Event::NotesLoaded { notes });
+                            }
+                        }
+                        // Ensure watch loop is running
+                        self_clone.maybe_start_watch().await;
                     }
                 }
                 Command::CreateNote { text } => {
@@ -348,3 +346,35 @@ fn convert_lib_note_to_uniffi(lib_note: LibNote) -> Note {
         is_synced: lib_note.is_synced,
     }
 }
+    async fn maybe_start_watch(self: Arc<Self>) {
+        // If a watch is already running, do nothing
+        if self.watch_handle.read().await.is_some() {
+            return;
+        }
+        // Try to acquire a receiver
+        match DIALOG.get().unwrap().watch_notes().await {
+            Ok(mut receiver) => {
+                eprintln!("[uniffi] watch_notes receiver acquired; entering loop");
+                let this = self.clone();
+                let handle = rt().spawn(async move {
+                    while let Some(lib_note) = receiver.recv().await {
+                        let note = convert_lib_note_to_uniffi(lib_note);
+                        let mut notes_guard = this.notes.write().await;
+                        if notes_guard.contains_key(&note.id) {
+                            notes_guard.insert(note.id.clone(), note.clone());
+                            eprintln!("[uniffi] Emitting Event::NoteUpdated {{ id={} }}", note.id);
+                            let _ = this.event_tx.send(Event::NoteUpdated { note });
+                        } else {
+                            notes_guard.insert(note.id.clone(), note.clone());
+                            eprintln!("[uniffi] Emitting Event::NoteAdded {{ id={} }}", note.id);
+                            let _ = this.event_tx.send(Event::NoteAdded { note });
+                        }
+                    }
+                });
+                *self.watch_handle.write().await = Some(handle);
+            }
+            Err(e) => {
+                eprintln!("[uniffi] watch_notes() failed to start: {}", e);
+            }
+        }
+    }

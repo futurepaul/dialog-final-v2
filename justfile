@@ -8,7 +8,7 @@ default:
 ios: 
     bash build-uniffi-package.sh
     cd ios && (command -v xcodegen >/dev/null 2>&1 && xcodegen generate || echo "xcodegen not found, using existing .xcodeproj") \
-        && xcodebuild -scheme DialogApp \
+        && xcodebuild -scheme DialogApp -resolvePackageDependencies \
         -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.4' \
         build
 
@@ -56,7 +56,7 @@ clean-ios:
 ios-fast:
     SKIP_RUST=1 bash build-uniffi-package.sh
     cd ios && (command -v xcodegen >/dev/null 2>&1 && xcodegen generate || echo "xcodegen not found, using existing .xcodeproj") \
-        && xcodebuild -scheme DialogApp \
+        && xcodebuild -scheme DialogApp -resolvePackageDependencies \
         -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.4' \
         build
 
