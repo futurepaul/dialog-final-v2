@@ -2,7 +2,7 @@ name: DialogApp
 options:
   bundleIdPrefix: com.dialog
   deploymentTarget:
-    iOS: 18.0
+    iOS: 18.4
   developmentLanguage: en
   xcodeVersion: "15.0"
   createIntermediateGroups: true
@@ -21,7 +21,7 @@ settings:
 
 packages:
   Dialog:
-    path: ../DialogPackage
+    path: DialogPackage
 
 targets:
   DialogApp:

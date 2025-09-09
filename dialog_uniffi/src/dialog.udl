@@ -4,13 +4,14 @@ dictionary Note {
     string id;
     string text;
     sequence<string> tags;
-    u64 created_at;
+    i64 created_at;
     boolean is_read;
     boolean is_synced;
 };
 
 [Enum]
 interface Event {
+    Ready();
     NotesLoaded(sequence<Note> notes);
     NoteAdded(Note note);
     NoteUpdated(Note note);
@@ -22,6 +23,7 @@ interface Event {
 
 [Enum]
 interface Command {
+    ConnectRelay(string relay_url);
     CreateNote(string text);
     DeleteNote(string id);
     MarkAsRead(string id);
@@ -35,7 +37,7 @@ callback interface DialogListener {
 };
 
 interface DialogClient {
-    constructor();
+    constructor(string nsec);
     
     // Fire-and-forget: spawns listener on background thread
     void start(DialogListener listener);

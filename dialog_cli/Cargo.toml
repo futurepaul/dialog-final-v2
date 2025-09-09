@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 dialog_lib = { path = "../dialog_lib" }
-nostr-sdk = { version = "0.37", features = ["ndb", "nip44"] }
+nostr-sdk = { workspace = true }
 clap = { version = "4", features = ["derive"] }
-tokio = { version = "1", features = ["full"] }
-thiserror = "2"
+tokio = { workspace = true }
+thiserror = { workspace = true }

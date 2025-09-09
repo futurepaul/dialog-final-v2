@@ -1,0 +1,17 @@
+[workspace]
+members = ["dialog_lib", "dialog_uniffi", "dialog_cli"]
+resolver = "2"
+
+[workspace.dependencies]
+nostr-sdk = { version = "0.37", features = ["ndb", "nip44"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+chrono = "0.4"
+directories = "5"
+uniffi = { version = "0.29", features = ["tokio"] }
+uniffi_bindgen = { version = "0.29" }
+uniffi_build = { version = "0.29" }
+once_cell = "1"
+uuid = { version = "1.11", features = ["v4", "serde"] }

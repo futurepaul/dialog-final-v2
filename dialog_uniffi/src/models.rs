@@ -6,7 +6,7 @@ pub struct Note {
     pub id: String,
     pub text: String,
     pub tags: Vec<String>,
-    pub created_at: u64,
+    pub created_at: i64,  // Changed to i64 to match Swift expectations
     pub is_read: bool,
     pub is_synced: bool,
 }
@@ -24,7 +24,7 @@ impl Note {
             id: Uuid::new_v4().to_string(),
             text,
             tags,
-            created_at: Utc::now().timestamp() as u64,
+            created_at: Utc::now().timestamp(),
             is_read: false,
             is_synced: false,
         }
@@ -33,6 +33,7 @@ impl Note {
 
 #[derive(Clone, Debug)]
 pub enum Event {
+    Ready,  // Sent when Dialog is initialized
     NotesLoaded { notes: Vec<Note> },
     NoteAdded { note: Note },
     NoteUpdated { note: Note },
@@ -44,6 +45,7 @@ pub enum Event {
 
 #[derive(Clone, Debug)]
 pub enum Command {
+    ConnectRelay { relay_url: String },
     CreateNote { text: String },
     DeleteNote { id: String },
     MarkAsRead { id: String },

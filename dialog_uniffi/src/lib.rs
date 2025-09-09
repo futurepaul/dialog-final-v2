@@ -2,8 +2,9 @@ mod mock_data;
 mod models;
 
 use models::{Note, Event, Command};
-use mock_data::generate_mock_notes;
 
+use dialog_lib::{Dialog, Note as LibNote};
+use nostr_sdk::prelude::*;
 use once_cell::sync::OnceCell;
 use std::{collections::HashMap, sync::Arc};
 use tokio::{
@@ -25,33 +26,54 @@ fn rt() -> &'static Runtime {
     })
 }
 
+// Global Dialog instance
+static DIALOG: OnceCell<Dialog> = OnceCell::new();
+
 pub struct DialogClient {
     notes: Arc<RwLock<HashMap<String, Note>>>,
     current_filter: Arc<RwLock<Option<String>>>,
     event_tx: broadcast::Sender<Event>,
+    watch_handle: Arc<RwLock<Option<tokio::task::JoinHandle<()>>>>,
 }
 
 impl DialogClient {
-    pub fn new() -> Self {
+    pub fn new(nsec: String) -> Self {
+        // Initialize Dialog once
+        let dialog = rt().block_on(async {
+            match Dialog::new(&nsec).await {
+                Ok(d) => d,
+                Err(e) => panic!("Failed to initialize Dialog: {}", e),
+            }
+        });
+        if DIALOG.set(dialog).is_err() {
+            panic!("Dialog already initialized");
+        }
+        
         let (event_tx, _) = broadcast::channel(1024);
         let client = Self {
             notes: Arc::new(RwLock::new(HashMap::new())),
             current_filter: Arc::new(RwLock::new(None)),
             event_tx,
+            watch_handle: Arc::new(RwLock::new(None)),
         };
         
-        // Load mock data
+        // Load initial notes from dialog_lib
         let notes_clone = client.notes.clone();
+        let event_tx_clone = client.event_tx.clone();
         rt().spawn(async move {
-            let mut notes = notes_clone.write().await;
-            for note in generate_mock_notes() {
-                notes.insert(note.id.clone(), note);
+            if let Ok(lib_notes) = DIALOG.get().unwrap().list_notes(100).await {
+                let mut notes = notes_clone.write().await;
+                for lib_note in lib_notes {
+                    let note = convert_lib_note_to_uniffi(lib_note);
+                    notes.insert(note.id.clone(), note.clone());
+                }
+                // Send ready event
+                let _ = event_tx_clone.send(Event::Ready);
             }
         });
         
         client
     }
-    
     pub fn start(self: Arc<Self>, listener: Box<dyn DialogListener>) {
         // Set up event forwarding to Swift (non-blocking)
         let mut rx = self.event_tx.subscribe();
@@ -69,6 +91,28 @@ impl DialogClient {
             }
         });
         
+        // Start watching for new notes
+        let self_clone = self.clone();
+        let handle = rt().spawn(async move {
+            if let Ok(mut receiver) = DIALOG.get().unwrap().watch_notes().await {
+                while let Some(lib_note) = receiver.recv().await {
+                    let note = convert_lib_note_to_uniffi(lib_note);
+                    
+                    // Update cache
+                    self_clone.notes.write().await.insert(note.id.clone(), note.clone());
+                    
+                    // Push event
+                    let _ = self_clone.event_tx.send(Event::NoteAdded { note });
+                }
+            }
+        });
+        
+        // Store the watch handle
+        let self_clone = self.clone();
+        rt().spawn(async move {
+            *self_clone.watch_handle.write().await = Some(handle);
+        });
+        
         // Send initial data
         let notes = self.get_notes(100, None);
         listener.on_event(Event::NotesLoaded { notes });
@@ -83,6 +127,11 @@ impl DialogClient {
         let self_clone = self.clone();
         rt().spawn(async move {
             match cmd {
+                Command::ConnectRelay { relay_url } => {
+                    if let Err(e) = DIALOG.get().unwrap().connect_relay(&relay_url).await {
+                        eprintln!("Failed to connect to relay: {}", e);
+                    }
+                }
                 Command::CreateNote { text } => {
                     self_clone.create_note(text).await;
                 }
@@ -93,9 +142,25 @@ impl DialogClient {
                     self_clone.mark_as_read(id).await;
                 }
                 Command::LoadNotes { limit } => {
-                    let filter = self_clone.current_filter.read().await.clone();
-                    let notes = self_clone.get_notes(limit, filter);
-                    let _ = self_clone.event_tx.send(Event::NotesLoaded { notes });
+                    // Sync from dialog_lib
+                    if let Ok(lib_notes) = DIALOG.get().unwrap().list_notes(limit as usize).await {
+                        let mut notes_map = self_clone.notes.write().await;
+                        let mut notes = Vec::new();
+                        
+                        for lib_note in lib_notes {
+                            let note = convert_lib_note_to_uniffi(lib_note);
+                            notes_map.insert(note.id.clone(), note.clone());
+                            notes.push(note);
+                        }
+                        
+                        // Apply filter if set
+                        let filter = self_clone.current_filter.read().await.clone();
+                        if let Some(tag) = filter {
+                            notes.retain(|n| n.tags.contains(&tag));
+                        }
+                        
+                        let _ = self_clone.event_tx.send(Event::NotesLoaded { notes });
+                    }
                 }
                 Command::DeleteNote { id } => {
                     self_clone.delete_note(id).await;
@@ -164,14 +229,21 @@ impl DialogClient {
     
     // Private async helpers
     async fn create_note(self: Arc<Self>, text: String) {
-        let note = Note::from_text(text);
-        let id = note.id.clone();
-        
-        // Update state
-        self.notes.write().await.insert(id, note.clone());
-        
-        // Push event
-        let _ = self.event_tx.send(Event::NoteAdded { note });
+        // Create note via dialog_lib
+        if let Ok(_note_id) = DIALOG.get().unwrap().create_note(&text).await {
+            // Fetch the created note
+            if let Ok(lib_notes) = DIALOG.get().unwrap().list_notes(1).await {
+                if let Some(lib_note) = lib_notes.first() {
+                    let note = convert_lib_note_to_uniffi(lib_note.clone());
+                    
+                    // Update state
+                    self.notes.write().await.insert(note.id.clone(), note.clone());
+                    
+                    // Push event
+                    let _ = self.event_tx.send(Event::NoteAdded { note });
+                }
+            }
+        }
     }
     
     async fn set_filter(self: Arc<Self>, tag: Option<String>) {
@@ -184,10 +256,15 @@ impl DialogClient {
     }
     
     async fn mark_as_read(self: Arc<Self>, id: String) {
-        let mut notes = self.notes.write().await;
-        if let Some(note) = notes.get_mut(&id) {
-            note.is_read = true;
-            let _ = self.event_tx.send(Event::NoteUpdated { note: note.clone() });
+        // Mark as read via dialog_lib
+        if let Ok(event_id) = EventId::from_hex(&id) {
+            if let Ok(_) = DIALOG.get().unwrap().mark_as_read(&event_id).await {
+                let mut notes = self.notes.write().await;
+                if let Some(note) = notes.get_mut(&id) {
+                    note.is_read = true;
+                    let _ = self.event_tx.send(Event::NoteUpdated { note: note.clone() });
+                }
+            }
         }
     }
     
@@ -212,4 +289,16 @@ impl DialogClient {
 
 pub trait DialogListener: Send + Sync {
     fn on_event(&self, event: Event);
+}
+
+// Helper function to convert dialog_lib Note to uniffi Note
+fn convert_lib_note_to_uniffi(lib_note: LibNote) -> Note {
+    Note {
+        id: lib_note.id.to_hex(),
+        text: lib_note.text,
+        tags: lib_note.tags,
+        created_at: lib_note.created_at.as_u64() as i64,
+        is_read: lib_note.is_read,
+        is_synced: lib_note.is_synced,
+    }
 }

@@ -87,7 +87,7 @@ struct NoteBubble: View {
             id: "preview1",
             text: "This is a preview note",
             tags: ["preview"],
-            createdAt: UInt64(Date().timeIntervalSince1970),
+            createdAt: Int64(Date().timeIntervalSince1970),
             isRead: false,
             isSynced: false
         ),
@@ -103,7 +103,7 @@ struct NoteBubble: View {
                 id: "preview1",
                 text: "First message in group",
                 tags: ["work"],
-                createdAt: UInt64(Date().timeIntervalSince1970),
+                createdAt: Int64(Date().timeIntervalSince1970),
                 isRead: true,
                 isSynced: true
             ),
@@ -115,7 +115,7 @@ struct NoteBubble: View {
                 id: "preview2",
                 text: "Middle message",
                 tags: ["work"],
-                createdAt: UInt64(Date().timeIntervalSince1970 + 30),
+                createdAt: Int64(Date().timeIntervalSince1970 + 30),
                 isRead: true,
                 isSynced: true
             ),
@@ -127,7 +127,7 @@ struct NoteBubble: View {
                 id: "preview3",
                 text: "Last message in the group",
                 tags: ["work", "important"],
-                createdAt: UInt64(Date().timeIntervalSince1970 + 45),
+                createdAt: Int64(Date().timeIntervalSince1970 + 45),
                 isRead: false,
                 isSynced: false
             ),

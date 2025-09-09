@@ -11,10 +11,16 @@ class InboxViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     
-    private let client = DialogClient()
+    private let client: DialogClient
     
     private let userDefaults = UserDefaults.standard
     private let scrollPositionKey = "dialog.scrollPosition"
+    
+    init() {
+        // For testing - in production this would come from secure storage
+        let testNsec = "nsec1ufnus6pju578ste3v90xd5m2decpuzpql2295m3sknqcjzyys9ls0qlc85"
+        self.client = DialogClient(nsec: testNsec)
+    }
     
     var displayedNotes: [Note] {
         notes.sorted { $0.createdAt < $1.createdAt }
@@ -39,6 +45,10 @@ class InboxViewModel: ObservableObject {
         // Start the client with the listener (fire-and-forget)
         client.start(listener: listener)
         
+        // Connect to a relay so create/list/watch work
+        let relay = ProcessInfo.processInfo.environment["DIALOG_RELAY"] ?? "wss://relay.damus.io"
+        client.sendCommand(cmd: Command.connectRelay(relayUrl: relay))
+        
         // Get initial data (synchronous queries)
         self.notes = client.getNotes(limit: 100, tag: currentTag)
         self.allTags = client.getAllTags()
@@ -50,6 +60,10 @@ class InboxViewModel: ObservableObject {
     
     private func handleEvent(_ event: Event) {
         switch event {
+        case .ready:
+            // Dialog is ready
+            break
+            
         case .notesLoaded(let notes):
             self.notes = notes
             self.isLoading = false
@@ -82,17 +96,17 @@ class InboxViewModel: ObservableObject {
         guard !trimmed.isEmpty else { return }
         
         // Fire-and-forget command
-        client.sendCommand(cmd: .createNote(text: trimmed))
+        client.sendCommand(cmd: Command.createNote(text: trimmed))
     }
     
     func setTagFilter(_ tag: String?) {
         // Fire-and-forget command
-        client.sendCommand(cmd: .setTagFilter(tag: tag))
+        client.sendCommand(cmd: Command.setTagFilter(tag: tag))
     }
     
     func markAsRead(_ noteId: String) {
         // Fire-and-forget command
-        client.sendCommand(cmd: .markAsRead(id: noteId))
+        client.sendCommand(cmd: Command.markAsRead(id: noteId))
     }
     
     func selectNote(_ note: Note) {
@@ -141,10 +155,10 @@ class InboxViewModel: ObservableObject {
 }
 
 // Helper class to implement DialogListener protocol
-class SwiftDialogListener: DialogListener {
-    private let onEventCallback: (Event) -> Void
+final class SwiftDialogListener: DialogListener, @unchecked Sendable {
+    private let onEventCallback: @Sendable (Event) -> Void
     
-    init(onEvent: @escaping (Event) -> Void) {
+    init(onEvent: @escaping @Sendable (Event) -> Void) {
         self.onEventCallback = onEvent
     }
     
