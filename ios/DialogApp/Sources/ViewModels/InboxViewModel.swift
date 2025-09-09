@@ -73,9 +73,8 @@ class InboxViewModel: ObservableObject {
             var unique: [String: Note] = [:]
             for n in notes { unique[n.id] = n }
             self.notes = Array(unique.values)
-            // Recompute tag list from current notes
-            let tagSet = Set(self.notes.flatMap { $0.tags })
-            self.allTags = Array(tagSet).sorted()
+            // Always compute tags across ALL cached notes, not filtered view
+            self.allTags = client.getAllTags()
             self.isLoading = false
             
         case .noteAdded(let note):
@@ -85,19 +84,15 @@ class InboxViewModel: ObservableObject {
                 self.notes.append(note)
             }
             self.notes.sort { $0.createdAt < $1.createdAt }
-            // Merge any new tags into the picker list
-            var tags = Set(self.allTags)
-            for t in note.tags { tags.insert(t) }
-            self.allTags = Array(tags).sorted()
+            // Refresh full tag list from client cache
+            self.allTags = client.getAllTags()
             
         case .noteUpdated(let note):
             if let index = notes.firstIndex(where: { $0.id == note.id }) {
                 notes[index] = note
             }
-            // If tags changed, update picker list
-            var tags = Set(self.allTags)
-            for t in note.tags { tags.insert(t) }
-            self.allTags = Array(tags).sorted()
+            // Refresh full tag list from client cache
+            self.allTags = client.getAllTags()
             
         case .noteDeleted(let id):
             notes.removeAll { $0.id == id }
