@@ -107,7 +107,7 @@ class InboxViewModel: ObservableObject {
         guard !trimmed.isEmpty else { return }
         
         // Fire-and-forget command
-        print("[swift] createNote -> sendCommand .createNote len=\(trimmed.count)")
+        print("[swift] createNote -> sendCommand .createNote text='\(trimmed)' len=\(trimmed.count)")
         client.sendCommand(cmd: Command.createNote(text: trimmed))
     }
     

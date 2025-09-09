@@ -84,10 +84,12 @@ cp ios/DialogPackage/Sources/Dialog/dialogFFI.modulemap ios/DialogPackage/Header
 
 # Create XCFramework with all architectures
 echo "📦 Creating XCFramework..."
-# Versioned output to bust Xcode package cache when needed
+# Versioned output to bust Xcode package cache when needed (auto-bump each build)
 VER_FILE=ios/DialogPackage/.xcframework-version
-if [ ! -f "$VER_FILE" ]; then echo 1 > "$VER_FILE"; fi
-VER=$(cat "$VER_FILE")
+CUR=0
+if [ -f "$VER_FILE" ]; then CUR=$(cat "$VER_FILE" 2>/dev/null || echo 0); fi
+VER=$((CUR + 1))
+echo $VER > "$VER_FILE"
 OUT_NAME="dialogFFI_v${VER}.xcframework"
 
 # Clean prior XCFrameworks
