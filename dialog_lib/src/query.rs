@@ -3,6 +3,11 @@ use nostr_sdk::prelude::*;
 
 impl Dialog {
     pub async fn list_notes(&self, limit: usize) -> Result<Vec<Note>> {
+        eprintln!(
+            "[lib] list_notes: limit={} for pubkey={}",
+            limit,
+            self.keys.public_key()
+        );
         // Query from local database
         let filter = Filter::new()
             .author(self.keys.public_key())
@@ -35,6 +40,7 @@ impl Dialog {
         // Sort by created_at descending (newest first)
         notes.sort_by(|a, b| b.created_at.cmp(&a.created_at));
 
+        eprintln!("[lib] list_notes: returning {} notes", notes.len());
         Ok(notes)
     }
 

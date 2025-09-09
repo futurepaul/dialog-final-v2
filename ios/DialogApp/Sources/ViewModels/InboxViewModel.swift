@@ -35,9 +35,11 @@ class InboxViewModel: ObservableObject {
     }
     
     func start() {
+        print("[swift] start() called")
         // Create listener to receive events from Rust
         let listener = SwiftDialogListener { [weak self] event in
             Task { @MainActor in
+                print("[swift] onEvent ->", String(describing: event))
                 self?.handleEvent(event)
             }
         }
@@ -50,8 +52,10 @@ class InboxViewModel: ObservableObject {
         client.sendCommand(cmd: Command.connectRelay(relayUrl: "wss://nos.lol"))
         
         // Get initial data (synchronous queries)
+        print("[swift] getNotes/getAllTags (sync) before events")
         self.notes = client.getNotes(limit: 100, tag: currentTag)
         self.allTags = client.getAllTags()
+        print("[swift] initial notes count", self.notes.count)
     }
     
     func stop() {
@@ -96,6 +100,7 @@ class InboxViewModel: ObservableObject {
         guard !trimmed.isEmpty else { return }
         
         // Fire-and-forget command
+        print("[swift] createNote -> sendCommand .createNote len=\(trimmed.count)")
         client.sendCommand(cmd: Command.createNote(text: trimmed))
     }
     

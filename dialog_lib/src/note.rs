@@ -13,6 +13,7 @@ pub struct Note {
 
 impl Dialog {
     pub async fn create_note(&self, text: &str) -> Result<EventId> {
+        eprintln!("[lib] create_note: building event (len={})", text.len());
         // Parse hashtags from text
         let tags = parse_hashtags(text);
 
@@ -38,6 +39,7 @@ impl Dialog {
 
         // Send the event (this also saves to local db)
         let output = self.client.send_event_builder(builder).await?;
+        eprintln!("[lib] create_note: sent; id={}", output.id());
         Ok(*output.id())
     }
 

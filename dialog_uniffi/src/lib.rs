@@ -38,15 +38,19 @@ pub struct DialogClient {
 
 impl DialogClient {
     pub fn new(nsec: String) -> Self {
+        eprintln!("[uniffi] DialogClient::new - initializing with nsec len={} chars", nsec.len());
         // Initialize Dialog once
         let dialog = rt().block_on(async {
             match Dialog::new(&nsec).await {
-                Ok(d) => d,
-                Err(e) => panic!("Failed to initialize Dialog: {}", e),
+                Ok(d) => {
+                    eprintln!("[uniffi] Dialog initialized; pubkey={}", d.public_key());
+                    d
+                }
+                Err(e) => panic!("[uniffi] Failed to initialize Dialog: {}", e),
             }
         });
         if DIALOG.set(dialog).is_err() {
-            panic!("Dialog already initialized");
+            panic!("[uniffi] Dialog already initialized");
         }
         
         let (event_tx, _) = broadcast::channel(1024);
@@ -58,23 +62,29 @@ impl DialogClient {
         };
         
         // Load initial notes from dialog_lib
+        eprintln!("[uniffi] Loading initial notes...");
         let notes_clone = client.notes.clone();
         let event_tx_clone = client.event_tx.clone();
         rt().spawn(async move {
             if let Ok(lib_notes) = DIALOG.get().unwrap().list_notes(100).await {
+                eprintln!("[uniffi] Initial notes loaded: {}", lib_notes.len());
                 let mut notes = notes_clone.write().await;
                 for lib_note in lib_notes {
                     let note = convert_lib_note_to_uniffi(lib_note);
                     notes.insert(note.id.clone(), note.clone());
                 }
                 // Send ready event
+                eprintln!("[uniffi] Sending Event::Ready");
                 let _ = event_tx_clone.send(Event::Ready);
+            } else {
+                eprintln!("[uniffi] Failed to load initial notes");
             }
         });
         
         client
     }
     pub fn start(self: Arc<Self>, listener: Box<dyn DialogListener>) {
+        eprintln!("[uniffi] start() called; wiring listener and watch loop");
         // Set up event forwarding to Swift (non-blocking)
         let mut rx = self.event_tx.subscribe();
         
@@ -85,6 +95,7 @@ impl DialogClient {
         // Spawn listener on background thread
         rt().spawn(async move {
             while let Ok(event) = rx.recv().await {
+                eprintln!("[uniffi] Dispatching event to Swift: {:?}", event);
                 // Callback to Swift happens on background thread
                 // Swift will handle @MainActor transition
                 listener_clone.on_event(event);
@@ -95,15 +106,24 @@ impl DialogClient {
         let self_clone = self.clone();
         let handle = rt().spawn(async move {
             if let Ok(mut receiver) = DIALOG.get().unwrap().watch_notes().await {
+                eprintln!("[uniffi] watch_notes receiver acquired; entering loop");
                 while let Some(lib_note) = receiver.recv().await {
                     let note = convert_lib_note_to_uniffi(lib_note);
                     
-                    // Update cache
-                    self_clone.notes.write().await.insert(note.id.clone(), note.clone());
-                    
-                    // Push event
-                    let _ = self_clone.event_tx.send(Event::NoteAdded { note });
+                    // Update cache and dedupe
+                    let mut notes_guard = self_clone.notes.write().await;
+                    if notes_guard.contains_key(&note.id) {
+                        notes_guard.insert(note.id.clone(), note.clone());
+                        eprintln!("[uniffi] Emitting Event::NoteUpdated { id={} }", note.id);
+                        let _ = self_clone.event_tx.send(Event::NoteUpdated { note });
+                    } else {
+                        notes_guard.insert(note.id.clone(), note.clone());
+                        eprintln!("[uniffi] Emitting Event::NoteAdded { id={} }", note.id);
+                        let _ = self_clone.event_tx.send(Event::NoteAdded { note });
+                    }
                 }
+            } else {
+                eprintln!("[uniffi] watch_notes() failed to start");
             }
         });
         
@@ -115,6 +135,7 @@ impl DialogClient {
         
         // Send initial data
         let notes = self.get_notes(100, None);
+        eprintln!("[uniffi] Emitting initial Event::NotesLoaded count={}", notes.len());
         listener.on_event(Event::NotesLoaded { notes });
     }
     
@@ -125,23 +146,31 @@ impl DialogClient {
     pub fn send_command(self: Arc<Self>, cmd: Command) {
         // Fire-and-forget: spawn work on Tokio runtime
         let self_clone = self.clone();
+        eprintln!("[uniffi] send_command: {:?}", cmd);
         rt().spawn(async move {
             match cmd {
                 Command::ConnectRelay { relay_url } => {
+                    eprintln!("[uniffi] Connecting to relay: {}", relay_url);
                     if let Err(e) = DIALOG.get().unwrap().connect_relay(&relay_url).await {
-                        eprintln!("Failed to connect to relay: {}", e);
+                        eprintln!("[uniffi] Failed to connect to relay: {}", e);
+                    } else {
+                        eprintln!("[uniffi] Connected to relay: {}", relay_url);
                     }
                 }
                 Command::CreateNote { text } => {
+                    eprintln!("[uniffi] CreateNote len={}", text.len());
                     self_clone.create_note(text).await;
                 }
                 Command::SetTagFilter { tag } => {
+                    eprintln!("[uniffi] SetTagFilter tag={:?}", tag);
                     self_clone.set_filter(tag).await;
                 }
                 Command::MarkAsRead { id } => {
+                    eprintln!("[uniffi] MarkAsRead id={}", id);
                     self_clone.mark_as_read(id).await;
                 }
                 Command::LoadNotes { limit } => {
+                    eprintln!("[uniffi] LoadNotes limit={} (sync from dialog_lib)", limit);
                     // Sync from dialog_lib
                     if let Ok(lib_notes) = DIALOG.get().unwrap().list_notes(limit as usize).await {
                         let mut notes_map = self_clone.notes.write().await;
@@ -160,12 +189,16 @@ impl DialogClient {
                         }
                         
                         let _ = self_clone.event_tx.send(Event::NotesLoaded { notes });
+                    } else {
+                        eprintln!("[uniffi] list_notes failed");
                     }
                 }
                 Command::DeleteNote { id } => {
+                    eprintln!("[uniffi] DeleteNote id={}", id);
                     self_clone.delete_note(id).await;
                 }
                 Command::SearchNotes { query } => {
+                    eprintln!("[uniffi] SearchNotes query='{}'", query);
                     self_clone.search_notes(query).await;
                 }
             }
@@ -230,18 +263,31 @@ impl DialogClient {
     // Private async helpers
     async fn create_note(self: Arc<Self>, text: String) {
         // Create note via dialog_lib
-        if let Ok(_note_id) = DIALOG.get().unwrap().create_note(&text).await {
-            // Fetch the created note
-            if let Ok(lib_notes) = DIALOG.get().unwrap().list_notes(1).await {
-                if let Some(lib_note) = lib_notes.first() {
-                    let note = convert_lib_note_to_uniffi(lib_note.clone());
-                    
-                    // Update state
-                    self.notes.write().await.insert(note.id.clone(), note.clone());
-                    
-                    // Push event
-                    let _ = self.event_tx.send(Event::NoteAdded { note });
-                }
+        eprintln!("[uniffi] create_note() begin");
+        match DIALOG.get().unwrap().create_note(&text).await {
+            Ok(note_id) => {
+                eprintln!("[uniffi] create_note() saved id={}", note_id.to_hex());
+                // Construct a provisional Note immediately using the returned id
+                let tags: Vec<String> = text
+                    .split_whitespace()
+                    .filter(|w| w.starts_with('#') && w.len() > 1)
+                    .map(|t| t[1..].to_lowercase())
+                    .collect();
+                let note = Note {
+                    id: note_id.to_hex(),
+                    text: text.clone(),
+                    tags,
+                    created_at: nostr_sdk::prelude::Timestamp::now().as_u64() as i64,
+                    is_read: false,
+                    is_synced: false,
+                };
+                // Update state and emit event
+                self.notes.write().await.insert(note.id.clone(), note.clone());
+                eprintln!("[uniffi] create_note() emitting NoteAdded id={}", note.id);
+                let _ = self.event_tx.send(Event::NoteAdded { note });
+            }
+            Err(e) => {
+                eprintln!("[uniffi] create_note() failed: {}", e);
             }
         }
     }
