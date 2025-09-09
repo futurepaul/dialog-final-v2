@@ -69,11 +69,18 @@ class InboxViewModel: ObservableObject {
             break
             
         case .notesLoaded(let notes):
-            self.notes = notes
+            // Deduplicate by id in case of repeats
+            var unique: [String: Note] = [:]
+            for n in notes { unique[n.id] = n }
+            self.notes = Array(unique.values)
             self.isLoading = false
             
         case .noteAdded(let note):
-            self.notes.append(note)
+            if let idx = self.notes.firstIndex(where: { $0.id == note.id }) {
+                self.notes[idx] = note
+            } else {
+                self.notes.append(note)
+            }
             self.notes.sort { $0.createdAt < $1.createdAt }
             
         case .noteUpdated(let note):

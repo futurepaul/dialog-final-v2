@@ -11,8 +11,10 @@ struct DialogApp: App {
         do {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             if !FileManager.default.fileExists(atPath: file.path) {
-                let empty: [String: Any] = [:]
-                let data = try PropertyListSerialization.data(fromPropertyList: empty, format: .xml, options: 0)
+                let payload: [String: Any] = [
+                    "OS_ELIGIBILITY_DOMAIN_GREYMATTER": [:]
+                ]
+                let data = try PropertyListSerialization.data(fromPropertyList: payload, format: .xml, options: 0)
                 try data.write(to: file, options: .atomic)
             }
         } catch {
