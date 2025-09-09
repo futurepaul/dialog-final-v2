@@ -1,0 +1,52 @@
+namespace dialog {};
+
+dictionary Note {
+    string id;
+    string text;
+    sequence<string> tags;
+    u64 created_at;
+    boolean is_read;
+    boolean is_synced;
+};
+
+[Enum]
+interface Event {
+    NotesLoaded(sequence<Note> notes);
+    NoteAdded(Note note);
+    NoteUpdated(Note note);
+    NoteDeleted(string id);
+    TagFilterChanged(string? tag);
+    SyncStatusChanged(boolean syncing);
+    Error(string message);
+};
+
+[Enum]
+interface Command {
+    CreateNote(string text);
+    DeleteNote(string id);
+    MarkAsRead(string id);
+    SetTagFilter(string? tag);
+    LoadNotes(u32 limit);
+    SearchNotes(string query);
+};
+
+callback interface DialogListener {
+    void on_event(Event event);
+};
+
+interface DialogClient {
+    constructor();
+    
+    // Fire-and-forget: spawns listener on background thread
+    void start(DialogListener listener);
+    void stop();
+    
+    // Fire-and-forget: spawns work on Tokio runtime
+    void send_command(Command cmd);
+    
+    // Fast synchronous queries from memory
+    sequence<Note> get_notes(u32 limit, string? tag);
+    sequence<string> get_all_tags();
+    Note? get_note(string id);
+    u32 get_unread_count(string? tag);
+};

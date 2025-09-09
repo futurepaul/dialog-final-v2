@@ -11,3 +11,13 @@ ios/.xcodegen_cache
 DerivedData/
 *.xcuserstate
 *.xcworkspace/xcuserdata/
+.swiftpm/
+
+# Rust
+target/
+*.rs.bk
+
+# UniFFI generated XCFramework  
+DialogPackage/XCFrameworks/
+DialogPackage/Sources/Dialog/*.swift
+!DialogPackage/Sources/Dialog/DialogFFIExports.swift

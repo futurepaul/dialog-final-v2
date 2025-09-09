@@ -413,7 +413,7 @@ class InboxViewModel: ObservableObject {
 
 ---
 
-## Phase 3: Topic Management & Navigation (Day 3)
+## Phase 3: Topic Management & Navigation (Day 3) ✅ COMPLETED
 
 ### 3.1 Topic Picker View
 **DialogApp/Sources/Views/TopicPickerView.swift**:
@@ -533,7 +533,14 @@ struct SearchView: View {
 
 ---
 
-## Phase 4: UniFFI Integration Preparation (Day 4)
+## Phase 4: UniFFI Integration Preparation (Day 4) 🚧 IN PROGRESS
+
+### Current Status
+- ✅ Created comprehensive UNIFFI_PLAN.md with push-based architecture
+- ✅ Defined Command/Event pattern for bidirectional communication
+- ✅ Planned dialog_uniffi crate structure (separate from dialog_lib)
+- ⏳ Next: Create dialog_uniffi crate with mock data
+- ⏳ Next: Update iOS app to use UniFFI bindings
 
 ### 4.1 Protocol Definitions for Future Integration
 **DialogApp/Sources/Services/DialogProtocol.swift**:
@@ -836,9 +843,11 @@ class InboxViewModel: ObservableObject {
 ✅ Beautiful UI with light gray bubbles and black text
 
 ### Phase 3-4 (Service Layer)
-✅ Mock service provides realistic delays
-✅ ViewModels are testable
-✅ No UI changes needed for service swap
+✅ Topic picker and filtering complete
+✅ All mock data working in Swift
+⏳ UniFFI architecture planned (see UNIFFI_PLAN.md)
+⏳ Mock service ready to be moved to Rust
+⏳ Command/Event pattern defined
 
 ### Phase 5-6 (Real Integration)
 ✅ UniFFI bindings compile without warnings
@@ -860,3 +869,36 @@ class InboxViewModel: ObservableObject {
 - **Day 10**: Documentation and handoff
 
 This plan ensures we have a working, polished UI from day one while systematically building towards the full Rust backend integration.
+
+---
+
+## 🚀 Next Steps (After Context Clear)
+
+### Immediate Next Actions
+1. **Create dialog_uniffi crate**:
+   ```bash
+   cargo new dialog_uniffi --lib
+   ```
+   - Follow structure in UNIFFI_PLAN.md Phase 1-3
+   - Copy mock data from Swift to Rust
+   - Implement push-based event system
+
+2. **Build UniFFI bindings**:
+   - Run build-uniffi-ios.sh script from UNIFFI_PLAN.md
+   - Generate XCFramework for iOS
+
+3. **Update iOS app**:
+   - Add DialogFFI.xcframework to project
+   - Update InboxViewModel to use DialogClient (see UNIFFI_PLAN.md Phase 4.1)
+   - Remove Swift MockData
+
+### Key Files to Reference
+- **UNIFFI_PLAN.md** - Complete architecture and implementation guide
+- **ios/DialogApp/Sources/Models/MockData.swift** - Mock data to migrate
+- **ios/DialogApp/Sources/ViewModels/InboxViewModel.swift** - ViewModel to update
+
+### Architecture Reminders
+- Rust owns all state, Swift just renders
+- Commands go Swift→Rust, Events come Rust→Swift  
+- All operations are non-blocking (async in Rust, callbacks to Swift)
+- No dependency on dialog_lib yet (pure mock implementation first)

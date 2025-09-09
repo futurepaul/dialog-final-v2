@@ -34,7 +34,7 @@ xcodegen generate --spec project.yml --use-cache
 echo "📱 Building for iOS Simulator..."
 xcodebuild -project DialogApp.xcodeproj \
   -scheme DialogApp \
-  -destination 'platform=iOS Simulator,name=iPhone 15 Pro' \
+  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
   build
 
 echo "✅ Build complete!"

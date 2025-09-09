@@ -16,6 +16,12 @@ settings:
   ENABLE_USER_SCRIPT_SANDBOXING: NO
   SWIFT_STRICT_CONCURRENCY: complete
   SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY: YES
+  EXCLUDED_ARCHS[sdk=iphonesimulator*]: x86_64
+  VALID_ARCHS: arm64
+
+packages:
+  Dialog:
+    path: ../DialogPackage
 
 targets:
   DialogApp:
@@ -29,23 +35,15 @@ targets:
       - path: DialogApp/Resources
         name: Resources
         createIntermediateGroups: true
-      - path: DialogApp/Generated
-        name: Generated
-        createIntermediateGroups: false
-        excludes:
-          - "**/*.h"
-          - "**/*.modulemap"
     dependencies:
-      - framework: DialogApp/Frameworks/DialogFFI.xcframework
-        embed: true
+      - package: Dialog
+        product: Dialog
     settings:
       PRODUCT_NAME: DialogApp
       PRODUCT_BUNDLE_IDENTIFIER: com.dialog.app
       INFOPLIST_FILE: DialogApp/Resources/Info.plist
       ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
       DEVELOPMENT_ASSET_PATHS: DialogApp/Preview
-      SWIFT_OBJC_BRIDGING_HEADER: $(SRCROOT)/DialogApp/Sources/DialogApp-Bridging-Header.h
-      HEADER_SEARCH_PATHS: $(SRCROOT)/DialogApp/Generated
     scheme:
       gatherCoverageData: true
       commandLineArguments:

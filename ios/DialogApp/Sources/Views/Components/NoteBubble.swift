@@ -1,4 +1,5 @@
 import SwiftUI
+import Dialog
 
 enum BubblePosition {
     case solo
@@ -82,7 +83,14 @@ struct NoteBubble: View {
 
 #Preview("Solo Message") {
     NoteBubble(
-        note: MockData.sampleNotes[0],
+        note: Note(
+            id: "preview1",
+            text: "This is a preview note",
+            tags: ["preview"],
+            createdAt: UInt64(Date().timeIntervalSince1970),
+            isRead: false,
+            isSynced: false
+        ),
         position: .solo,
         onTap: {}
     )
@@ -91,17 +99,38 @@ struct NoteBubble: View {
 #Preview("Message Group") {
     VStack(spacing: 2) {
         NoteBubble(
-            note: MockData.sampleNotes[0],
+            note: Note(
+                id: "preview1",
+                text: "First message in group",
+                tags: ["work"],
+                createdAt: UInt64(Date().timeIntervalSince1970),
+                isRead: true,
+                isSynced: true
+            ),
             position: .top,
             onTap: {}
         )
         NoteBubble(
-            note: MockData.sampleNotes[1],
+            note: Note(
+                id: "preview2",
+                text: "Middle message",
+                tags: ["work"],
+                createdAt: UInt64(Date().timeIntervalSince1970 + 30),
+                isRead: true,
+                isSynced: true
+            ),
             position: .middle,
             onTap: {}
         )
         NoteBubble(
-            note: MockData.sampleNotes[2],
+            note: Note(
+                id: "preview3",
+                text: "Last message in the group",
+                tags: ["work", "important"],
+                createdAt: UInt64(Date().timeIntervalSince1970 + 45),
+                isRead: false,
+                isSynced: false
+            ),
             position: .bottom,
             onTap: {}
         )

@@ -1,4 +1,5 @@
 import SwiftUI
+import Dialog
 
 struct InboxView: View {
     @StateObject private var viewModel = InboxViewModel()
@@ -40,6 +41,9 @@ struct InboxView: View {
                     }
                     .scrollDismissesKeyboard(.interactively)
                     .onAppear {
+                        // Start the DialogClient listener
+                        viewModel.start()
+                        
                         // Restore scroll position or scroll to bottom
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                             if let savedId = viewModel.getLastScrollPosition(),
@@ -53,6 +57,10 @@ struct InboxView: View {
                                 }
                             }
                         }
+                    }
+                    .onDisappear {
+                        // Stop the DialogClient listener
+                        viewModel.stop()
                     }
                     .onChange(of: viewModel.displayedNotes.count) { oldCount, newCount in
                         // Scroll to new message if we added one
@@ -82,7 +90,12 @@ struct InboxView: View {
         .sheet(isPresented: $showingTopicPicker) {
             TopicPickerView(
                 selectedTag: $viewModel.currentTag,
-                dismiss: { showingTopicPicker = false }
+                allTags: viewModel.allTags,
+                allNotes: viewModel.notes,
+                dismiss: { showingTopicPicker = false },
+                onTagSelected: { tag in
+                    viewModel.setTagFilter(tag)
+                }
             )
         }
     }
