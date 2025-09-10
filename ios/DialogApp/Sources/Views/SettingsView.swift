@@ -11,6 +11,7 @@ struct SettingsView: View {
     @State private var showingQR = false
     @State private var showSignOutAlert = false
     @State private var ephemeralNpub: String = ""
+    @State private var showingCopyToast = false
 
     var body: some View {
         NavigationStack {
@@ -28,23 +29,32 @@ struct SettingsView: View {
                 }
 
                 Section("Account") {
-                    HStack {
+                    VStack(alignment: .leading, spacing: 8) {
                         Text("npub")
-                        Spacer()
-                        Text(npubForCurrent())
-                            .font(.system(.footnote, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .contextMenu { Button("Copy") { UIPasteboard.general.string = npubForCurrent() } }
+                        HStack {
+                            Text(npubForCurrent())
+                                .font(.system(.footnote, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Spacer()
+                            Button {
+                                UIPasteboard.general.string = npubForCurrent()
+                            } label: {
+                                Label("Copy", systemImage: "doc.on.doc")
+                            }
+                            .buttonStyle(.borderless)
+                        }
                     }
                     Button {
                         showingQR = true
                     } label: {
                         Label("Show nsec as QR", systemImage: "qrcode")
                     }
-                    .alert("Your nsec is secret. Anyone with it can access your notes.", isPresented: $showingQR) {
-                        Button("Cancel", role: .cancel) {}
-                        Button("I understand") { presentQR() }
+                    Button {
+                        UIPasteboard.general.string = viewModel.nsecInUse
+                    } label: {
+                        Label("Copy nsec", systemImage: "key")
                     }
                 }
 
@@ -69,6 +79,9 @@ struct SettingsView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             }
+            .sheet(isPresented: $showingQR) {
+                NsecQRSheet(nsec: viewModel.nsecInUse) { showingQR = false }
+            }
         }
     }
 
@@ -78,13 +91,7 @@ struct SettingsView: View {
         return ephemeralNpub
     }
 
-    private func presentQR() {
-        guard let img = QRGenerator.generate(from: viewModel.nsecInUse) else { return }
-        let vc = UIActivityViewController(activityItems: [img], applicationActivities: nil)
-        UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .first?.keyWindow?.rootViewController?.present(vc, animated: true)
-    }
+    private func presentQR() { /* replaced with SwiftUI sheet below */ }
 }
 
 // MARK: - QR
@@ -99,5 +106,54 @@ enum QRGenerator {
         let scaleY: CGFloat = 6
         let transformed = output.transformed(by: CGAffineTransform(scaleX: scaleX, y: scaleY))
         return UIImage(ciImage: transformed)
+    }
+}
+
+// MARK: - NsecQRSheet
+struct NsecQRSheet: View {
+    let nsec: String
+    let onClose: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 20) {
+                if let img = QRGenerator.generate(from: nsec) {
+                    Image(uiImage: img)
+                        .interpolation(.none)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: 280, maxHeight: 280)
+                        .padding()
+                } else {
+                    Text("Could not generate QR code")
+                        .foregroundStyle(.secondary)
+                }
+                Text("Your nsec is secret. Anyone with it can access your notes.")
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal)
+                HStack {
+                    Button {
+                        UIPasteboard.general.string = nsec
+                    } label: {
+                        Label("Copy nsec", systemImage: "doc.on.doc")
+                    }
+                    .buttonStyle(.bordered)
+                    Button {
+                        let avc = UIActivityViewController(activityItems: [nsec], applicationActivities: nil)
+                        UIApplication.shared.connectedScenes
+                            .compactMap { $0 as? UIWindowScene }
+                            .first?.keyWindow?.rootViewController?.present(avc, animated: true)
+                    } label: {
+                        Label("Share", systemImage: "square.and.arrow.up")
+                    }
+                    .buttonStyle(.bordered)
+                }
+                Spacer()
+            }
+            .padding()
+            .navigationTitle("nsec QR")
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { onClose() } } }
+        }
     }
 }

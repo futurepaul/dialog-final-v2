@@ -36,28 +36,29 @@ struct InboxView: View {
                             }
                             .padding()
                         }
-                        // Search bar
-                        HStack {
-                            Image(systemName: "magnifyingglass")
-                                .foregroundStyle(.secondary)
-                            TextField("Search", text: $searchQuery)
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled()
-                                .onChange(of: searchQuery) { _, new in
-                                    searchWorkItem?.cancel()
-                                    let work = DispatchWorkItem { [new] in
-                                        if new.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                            viewModel.setTagFilter(viewModel.currentTag)
-                                            viewModel.start() // refresh notes
-                                        } else {
-                                            viewModel.search(new)
+                        // Search bar (only when we have content)
+                        if !viewModel.displayedNotes.isEmpty {
+                            HStack {
+                                Image(systemName: "magnifyingglass")
+                                    .foregroundStyle(.secondary)
+                                TextField("Search", text: $searchQuery)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled()
+                                    .onChange(of: searchQuery) { _, new in
+                                        searchWorkItem?.cancel()
+                                        let work = DispatchWorkItem { [new] in
+                                            if new.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                                viewModel.setTagFilter(viewModel.currentTag)
+                                            } else {
+                                                viewModel.search(new)
+                                            }
                                         }
+                                        searchWorkItem = work
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
                                     }
-                                    searchWorkItem = work
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
-                                }
+                            }
+                            .padding(.horizontal)
                         }
-                        .padding(.horizontal)
                         LazyVStack(spacing: 2) {
                             ForEach(Array(viewModel.displayedNotes.enumerated()), id: \.element.id) { index, note in
                                 NoteBubble(
