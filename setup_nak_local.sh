@@ -32,20 +32,16 @@ fi
 echo "Building nak with negentropy support..."
 go build -o nak
 
-echo "Installing nak to ~/go/bin/..."
-mkdir -p ~/go/bin
-cp nak ~/go/bin/
+# Place the patched binary at the repo root as 'nak-negentropy'
+cp nak "$SCRIPT_DIR/nak-negentropy"
 
 # Clean up
 cd /
 rm -rf "$TEMP_DIR"
 
-echo "Done! nak is installed at ~/go/bin/nak"
+echo "Done! Patched nak placed at: $SCRIPT_DIR/nak-negentropy"
 echo ""
-echo "To run the local relay server:"
-echo "  ~/go/bin/nak serve --port 10548"
+echo "To run the local relay server manually:"
+echo "  ./nak-negentropy serve --port 10548"
 echo ""
-echo "Or add ~/go/bin to your PATH and run:"
-echo "  nak serve --port 10548"
-echo ""
-echo "Note: Patched with negentropy support for efficient sync"
+echo "Note: Tests expect './nak-negentropy' in the repo root."
