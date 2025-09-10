@@ -19,6 +19,15 @@ This is a working checklist derived from FUTURE_PLANS.md. I’ll implement as mu
 - [x] Ensure `is_synced=true` when relay echo arrives (already implied via watch update)
 - [x] Keep `mark_as_read` flow (already in wrapper) and UI can query counts
 
+## iOS App (UI)
+- [x] Settings sheet from Tag Switcher with:
+  - [x] Relay URL in `UserDefaults` (`DIALOG_RELAY`) with live reconnect
+  - [x] Show npub; copy support; Show nsec as QR with warning
+  - [x] Sign out (wipe Keychain + local cache via UniFFI)
+- [x] Tag Switcher counts use central `get_tag_counts()`
+- [x] Debounced in-app search using `Command::SearchNotes`
+- [~] Setup: read `nsec` from Keychain; fallback to `DIALOG_NSEC` env (no full onboarding UI yet)
+
 ## Refactor (dialog_uniffi)
 - [ ] Non-breaking split: move conversion helpers and watch loop into modules (`convert.rs`, `watch.rs`), keep public API stable
 - [ ] Leave deeper split (`runtime/state/events/commands`) for a follow-up after shipping API changes
