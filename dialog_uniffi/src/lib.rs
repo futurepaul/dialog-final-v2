@@ -1,7 +1,7 @@
 mod models;
 use models::TagCount;
 
-pub use models::{Note, Event, Command, SyncMode};
+pub use models::{Command, Event, Note, SyncMode};
 
 use dialog_lib::{Dialog, Note as LibNote};
 use nostr_sdk::prelude::*;
@@ -9,7 +9,7 @@ use once_cell::sync::OnceCell;
 use std::{collections::HashMap, sync::Arc};
 use tokio::{
     runtime::Runtime,
-    sync::{broadcast, RwLock},
+    sync::{RwLock, broadcast},
 };
 
 uniffi::include_scaffolding!("dialog");
@@ -39,7 +39,10 @@ pub struct DialogClient {
 
 impl DialogClient {
     pub fn new(nsec: String) -> Self {
-        eprintln!("[uniffi] DialogClient::new - initializing with nsec len={} chars", nsec.len());
+        eprintln!(
+            "[uniffi] DialogClient::new - initializing with nsec len={} chars",
+            nsec.len()
+        );
         // Initialize Dialog once
         let dialog = rt().block_on(async {
             match Dialog::new(&nsec).await {
@@ -53,7 +56,7 @@ impl DialogClient {
         if DIALOG.set(dialog).is_err() {
             panic!("[uniffi] Dialog already initialized");
         }
-        
+
         let (event_tx, _) = broadcast::channel(1024);
         // Resolve sync mode from env (DIALOG_SYNC_MODE)
         let sync_mode = match std::env::var("DIALOG_SYNC_MODE").ok().as_deref() {
@@ -67,7 +70,7 @@ impl DialogClient {
             watch_handle: Arc::new(RwLock::new(None)),
             sync_mode: Arc::new(RwLock::new(sync_mode)),
         };
-        
+
         // Load initial notes from dialog_lib
         eprintln!("[uniffi] Loading initial notes...");
         let notes_clone = client.notes.clone();
@@ -87,18 +90,18 @@ impl DialogClient {
                 eprintln!("[uniffi] Failed to load initial notes");
             }
         });
-        
+
         client
     }
     pub fn start(self: Arc<Self>, listener: Box<dyn DialogListener>) {
         eprintln!("[uniffi] start() called; wiring listener and watch loop");
         // Set up event forwarding to Swift (non-blocking)
         let mut rx = self.event_tx.subscribe();
-        
+
         // Convert Box to Arc for sharing between threads
         let listener: Arc<dyn DialogListener> = Arc::from(listener);
         let listener_clone = listener.clone();
-        
+
         // Spawn listener on background thread
         rt().spawn(async move {
             while let Ok(event) = rx.recv().await {
@@ -108,23 +111,26 @@ impl DialogClient {
                 listener_clone.on_event(event);
             }
         });
-        
+
         // Attempt to start watch loop immediately; if not connected yet, we'll try again after connect.
         let self_clone = self.clone();
         rt().spawn(async move {
             self_clone.maybe_start_watch().await;
         });
-        
+
         // Send initial data
         let notes = self.get_notes(100, None);
-        eprintln!("[uniffi] Emitting initial Event::NotesLoaded count={}", notes.len());
+        eprintln!(
+            "[uniffi] Emitting initial Event::NotesLoaded count={}",
+            notes.len()
+        );
         listener.on_event(Event::NotesLoaded { notes });
     }
-    
+
     pub fn stop(&self) {
         // Cleanup if needed
     }
-    
+
     pub fn send_command(self: Arc<Self>, cmd: Command) {
         // Fire-and-forget: spawn work on Tokio runtime
         let self_clone = self.clone();
@@ -138,16 +144,31 @@ impl DialogClient {
                     } else {
                         eprintln!("[uniffi] Connected to relay: {relay_url}");
                         // After connecting, either Negentropy sync or plain subscribe based on mode
-                        match *self_clone.sync_mode.read().await {
+                        // Decide sync approach
+                        let mut mode = self_clone.sync_mode.write().await;
+                        match *mode {
                             SyncMode::Negentropy => {
-                                if let Err(e) = DIALOG.get().unwrap().sync_notes().await {
-                                    eprintln!("[uniffi] sync_notes failed: {e}");
+                                // Try negentropy; if it fails, fall back to plain
+                                match DIALOG.get().unwrap().sync_notes().await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        eprintln!("[uniffi] Negentropy sync failed: {e}; falling back to plain subscribe fetch");
+                                        if let Err(e2) = DIALOG.get().unwrap().sync_notes_plain(Some(500)).await {
+                                            eprintln!("[uniffi] Plain fetch also failed: {e2}");
+                                        } else {
+                                            *mode = SyncMode::Subscribe;
+                                        }
+                                    }
                                 }
                             }
                             SyncMode::Subscribe => {
-                                eprintln!("[uniffi] Using plain subscribe mode; skipping negentropy sync");
+                                eprintln!("[uniffi] Using plain subscribe mode; performing initial fetch");
+                                if let Err(e) = DIALOG.get().unwrap().sync_notes_plain(Some(500)).await {
+                                    eprintln!("[uniffi] Plain fetch failed: {e}");
+                                }
                             }
                         }
+                        drop(mode);
                         // Load updated notes and emit NotesLoaded from local cache
                         if let Ok(lib_notes) = DIALOG.get().unwrap().list_notes(100).await {
                             let mut notes_map = self_clone.notes.write().await;
@@ -186,19 +207,19 @@ impl DialogClient {
                     if let Ok(lib_notes) = DIALOG.get().unwrap().list_notes(limit as usize).await {
                         let mut notes_map = self_clone.notes.write().await;
                         let mut notes = Vec::new();
-                        
+
                         for lib_note in lib_notes {
                             let note = convert_lib_note_to_uniffi(lib_note);
                             notes_map.insert(note.id.clone(), note.clone());
                             notes.push(note);
                         }
-                        
+
                         // Apply filter if set
                         let filter = self_clone.current_filter.read().await.clone();
                         if let Some(tag) = filter {
                             notes.retain(|n| n.tags.contains(&tag));
                         }
-                        
+
                         let _ = self_clone.event_tx.send(Event::NotesLoaded { notes });
                     } else {
                         eprintln!("[uniffi] list_notes failed");
@@ -219,7 +240,7 @@ impl DialogClient {
             }
         });
     }
-    
+
     // Fast synchronous queries
     pub fn get_notes(&self, limit: u32, tag: Option<String>) -> Vec<Note> {
         // Use try_read to avoid blocking in async context
@@ -236,11 +257,11 @@ impl DialogClient {
             .filter(|n| tag.as_ref().is_none_or(|t| n.tags.contains(t)))
             .cloned()
             .collect();
-        
+
         result.sort_by(|a, b| a.created_at.cmp(&b.created_at));
         result.into_iter().take(limit as usize).collect()
     }
-    
+
     pub fn get_all_tags(&self) -> Vec<String> {
         let notes = match self.notes.try_read() {
             Ok(guard) => guard,
@@ -256,11 +277,11 @@ impl DialogClient {
         result.sort();
         result
     }
-    
+
     pub fn get_note(&self, id: String) -> Option<Note> {
         self.notes.try_read().ok()?.get(&id).cloned()
     }
-    
+
     pub fn get_unread_count(&self, tag: Option<String>) -> u32 {
         let notes = match self.notes.try_read() {
             Ok(guard) => guard,
@@ -291,7 +312,7 @@ impl DialogClient {
         result.sort_by(|a, b| a.tag.cmp(&b.tag));
         result
     }
-    
+
     // Private async helpers
     async fn create_note(self: Arc<Self>, text: String) {
         // Create note via dialog_lib
@@ -314,7 +335,10 @@ impl DialogClient {
                     is_synced: false,
                 };
                 // Update state and emit event
-                self.notes.write().await.insert(note.id.clone(), note.clone());
+                self.notes
+                    .write()
+                    .await
+                    .insert(note.id.clone(), note.clone());
                 eprintln!("[uniffi] create_note() emitting NoteAdded id={}", note.id);
                 let _ = self.event_tx.send(Event::NoteAdded { note });
             }
@@ -323,16 +347,18 @@ impl DialogClient {
             }
         }
     }
-    
+
     async fn set_filter(self: Arc<Self>, tag: Option<String>) {
         *self.current_filter.write().await = tag.clone();
-        let _ = self.event_tx.send(Event::TagFilterChanged { tag: tag.clone() });
-        
+        let _ = self
+            .event_tx
+            .send(Event::TagFilterChanged { tag: tag.clone() });
+
         // Re-send filtered notes
         let notes = self.get_notes(100, tag);
         let _ = self.event_tx.send(Event::NotesLoaded { notes });
     }
-    
+
     async fn mark_as_read(self: Arc<Self>, id: String) {
         // Mark as read via dialog_lib
         if let Ok(event_id) = EventId::from_hex(&id) {
@@ -340,19 +366,21 @@ impl DialogClient {
                 let mut notes = self.notes.write().await;
                 if let Some(note) = notes.get_mut(&id) {
                     note.is_read = true;
-                    let _ = self.event_tx.send(Event::NoteUpdated { note: note.clone() });
+                    let _ = self
+                        .event_tx
+                        .send(Event::NoteUpdated { note: note.clone() });
                 }
             }
         }
     }
-    
+
     async fn delete_note(self: Arc<Self>, id: String) {
         let mut notes = self.notes.write().await;
         if notes.remove(&id).is_some() {
             let _ = self.event_tx.send(Event::NoteDeleted { id });
         }
     }
-    
+
     async fn search_notes(self: Arc<Self>, query: String) {
         let notes = self.notes.read().await;
         let query_lower = query.to_lowercase();

@@ -6,7 +6,7 @@ pub struct Note {
     pub id: String,
     pub text: String,
     pub tags: Vec<String>,
-    pub created_at: i64,  // Changed to i64 to match Swift expectations
+    pub created_at: i64, // Changed to i64 to match Swift expectations
     pub is_read: bool,
     pub is_synced: bool,
 }
@@ -25,7 +25,7 @@ impl Note {
             .filter(|word| word.starts_with('#') && word.len() > 1)
             .map(|tag| tag[1..].to_lowercase())
             .collect();
-        
+
         Self {
             id: Uuid::new_v4().to_string(),
             text,
@@ -39,7 +39,7 @@ impl Note {
 
 #[derive(Clone, Debug)]
 pub enum Event {
-    Ready,  // Sent when Dialog is initialized
+    Ready, // Sent when Dialog is initialized
     NotesLoaded { notes: Vec<Note> },
     NoteAdded { note: Note },
     NoteUpdated { note: Note },

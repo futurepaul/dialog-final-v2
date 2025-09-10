@@ -89,6 +89,35 @@ impl Dialog {
         self.client.sync(filter, &SyncOptions::default()).await?;
         Ok(())
     }
+
+    /// Plain NIP-01 subscribe/fetch fallback for relays without Negentropy
+    pub async fn sync_notes_plain(&self, limit: Option<usize>) -> Result<()> {
+        // Build a standard filter. If a limit is provided, apply it.
+        let mut filter = Filter::new()
+            .author(self.keys.public_key())
+            .kind(Kind::from(1059));
+        if let Some(lim) = limit {
+            filter = filter.limit(lim);
+        }
+
+        // Fetch a snapshot of events and persist to local DB
+        // Try a reasonable timeout; network errors are surfaced as DialogError::Database via save.
+        let events = self
+            .client
+            .fetch_events(vec![filter], Some(std::time::Duration::from_secs(10)))
+            .await
+            .map_err(|e| DialogError::Database(e.to_string()))?;
+
+        for event in events {
+            // Save to local DB; ignore duplicates
+            self.client
+                .database()
+                .save_event(&event)
+                .await
+                .map_err(|e| DialogError::Database(e.to_string()))?;
+        }
+        Ok(())
+    }
 }
 
 fn extract_tags(event: &Event) -> Vec<String> {

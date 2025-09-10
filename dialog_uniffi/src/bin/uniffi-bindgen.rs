@@ -1,20 +1,22 @@
-use std::env;
 use camino::Utf8PathBuf;
-use uniffi_bindgen::{generate_bindings, bindings::SwiftBindingGenerator};
+use std::env;
+use uniffi_bindgen::{bindings::SwiftBindingGenerator, generate_bindings};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    
+
     // Parse simple arguments for our use case
     if args.len() < 6 || args[1] != "generate" {
-        eprintln!("Usage: uniffi-bindgen generate --library <lib> --language swift --out-dir <dir> <udl>");
+        eprintln!(
+            "Usage: uniffi-bindgen generate --library <lib> --language swift --out-dir <dir> <udl>"
+        );
         std::process::exit(1);
     }
-    
+
     let mut library_path = None;
     let mut out_dir = None;
     let mut udl_file = None;
-    
+
     let mut i = 2;
     while i < args.len() {
         match args[i].as_str() {
@@ -36,11 +38,11 @@ fn main() {
             }
         }
     }
-    
+
     let library_path = library_path.expect("--library required");
     let out_dir = out_dir.expect("--out-dir required");
     let udl_file = udl_file.expect("UDL file required");
-    
+
     // Generate Swift bindings
     let generator = SwiftBindingGenerator;
     generate_bindings(
@@ -51,5 +53,6 @@ fn main() {
         Some(&library_path),
         None,
         false,
-    ).expect("Failed to generate bindings");
+    )
+    .expect("Failed to generate bindings");
 }
