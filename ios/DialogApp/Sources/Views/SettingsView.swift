@@ -10,40 +10,44 @@ struct SettingsView: View {
     @AppStorage("DIALOG_RELAY") private var relayUrl: String = "wss://relay.damus.io"
     @State private var showingQR = false
     @State private var showSignOutAlert = false
-    @State private var ephemeralNpub: String = ""
-    @State private var showingCopyToast = false
+    @State private var npubCopied = false
+    @State private var nsecCopied = false
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("Relay") {
-                    TextField("Relay URL", text: $relayUrl)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .keyboardType(.URL)
-                        .onSubmit { viewModel.connectRelay(relayUrl) }
-                        .onChange(of: relayUrl) { _, new in
-                            // Connect on change (debounced by user typing)
-                            viewModel.connectRelay(new)
-                        }
+                    HStack {
+                        TextField("Relay URL", text: $relayUrl)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .keyboardType(.URL)
+                            .onSubmit { viewModel.connectRelay(relayUrl) }
+                        Button("Connect") { viewModel.connectRelay(relayUrl) }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                    }
                 }
 
                 Section("Account") {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("npub")
                         HStack {
-                            Text(npubForCurrent())
+                            Text(viewModel.npub)
                                 .font(.system(.footnote, design: .monospaced))
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
                                 .truncationMode(.middle)
                             Spacer()
                             Button {
-                                UIPasteboard.general.string = npubForCurrent()
+                                UIPasteboard.general.string = viewModel.npub
+                                npubCopied = true
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { npubCopied = false }
                             } label: {
-                                Label("Copy", systemImage: "doc.on.doc")
+                                Label(npubCopied ? "Copied" : "Copy", systemImage: npubCopied ? "checkmark" : "doc.on.doc")
                             }
-                            .buttonStyle(.borderless)
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
                         }
                     }
                     Button {
@@ -53,8 +57,10 @@ struct SettingsView: View {
                     }
                     Button {
                         UIPasteboard.general.string = viewModel.nsecInUse
+                        nsecCopied = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { nsecCopied = false }
                     } label: {
-                        Label("Copy nsec", systemImage: "key")
+                        Label(nsecCopied ? "nsec copied" : "Copy nsec", systemImage: nsecCopied ? "checkmark" : "key")
                     }
                 }
 
@@ -83,12 +89,6 @@ struct SettingsView: View {
                 NsecQRSheet(nsec: viewModel.nsecInUse) { showingQR = false }
             }
         }
-    }
-
-    private func npubForCurrent() -> String {
-        if !ephemeralNpub.isEmpty { return ephemeralNpub }
-        ephemeralNpub = viewModel.deriveNpub(from: viewModel.nsecInUse)
-        return ephemeralNpub
     }
 
     private func presentQR() { /* replaced with SwiftUI sheet below */ }

@@ -11,6 +11,7 @@ class InboxViewModel: ObservableObject {
     @Published var tagCounts: [String: Int] = [:]
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var npub: String = ""
     
     private let client: DialogClient
     private(set) var nsecInUse: String = ""
@@ -36,6 +37,8 @@ class InboxViewModel: ObservableObject {
             self.nsecInUse = nsec
             _ = KeychainService.save(key: "nsec", data: Data(nsec.utf8))
         }
+        // Derive npub once, driven by current nsec
+        self.npub = client.deriveNpub(nsec: self.nsecInUse)
     }
     
     var displayedNotes: [Note] {
@@ -207,13 +210,7 @@ class InboxViewModel: ObservableObject {
         client.clearDataForCurrentPubkey()
     }
     
-    func validate(nsec: String) -> Bool {
-        client.validateNsec(nsec: nsec)
-    }
-    
-    func deriveNpub(from nsec: String) -> String {
-        client.deriveNpub(nsec: nsec)
-    }
+    func validate(nsec: String) -> Bool { client.validateNsec(nsec: nsec) }
     
     func saveScrollPosition(for noteId: String?) {
         if let noteId = noteId {
