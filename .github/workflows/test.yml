@@ -40,6 +40,11 @@ jobs:
         # Build nak with negentropy support
         go build -o $GITHUB_WORKSPACE/nak-negentropy .
         chmod +x $GITHUB_WORKSPACE/nak-negentropy
+
+    - name: Validate test key
+      env:
+        DIALOG_NSEC: ${{ secrets.DIALOG_NSEC_TEST }}
+      run: cargo run -p dialog_cli -- --print-config
     
     - name: Run dialog_lib tests
       working-directory: dialog_lib
