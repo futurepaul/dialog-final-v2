@@ -29,7 +29,12 @@ class InboxViewModel: ObservableObject {
             self.nsecInUse = nsec
             _ = KeychainService.save(key: "nsec", data: Data(nsec.utf8))
         } else {
-            fatalError("nsec not found in Keychain and DIALOG_NSEC not set. Add to Keychain or set in scheme env.")
+            // Auto-generate a new nsec on first run
+            let helper = KeysHelper()
+            let nsec = helper.generateNsec()
+            self.client = DialogClient(nsec: nsec)
+            self.nsecInUse = nsec
+            _ = KeychainService.save(key: "nsec", data: Data(nsec.utf8))
         }
     }
     

@@ -26,6 +26,16 @@ struct InboxView: View {
                 // Messages list
                 ScrollViewReader { proxy in
                     ScrollView {
+                        if viewModel.displayedNotes.isEmpty {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Welcome!")
+                                    .font(.title2).bold()
+                                Text("Start writing notes. Everything is encrypted and saved to the cloud.")
+                                Text("If you want to connect other devices or use an existing account type \"/setup\"")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding()
+                        }
                         // Search bar
                         HStack {
                             Image(systemName: "magnifyingglass")
@@ -105,7 +115,12 @@ struct InboxView: View {
                 InputBar(
                     text: $messageText,
                     onSend: {
-                        viewModel.createNote(text: messageText)
+                        let trimmed = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if trimmed == "/setup" {
+                            showingSettings = true
+                        } else {
+                            viewModel.createNote(text: trimmed)
+                        }
                         messageText = ""
                     },
                     isEnabled: !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty

@@ -69,3 +69,11 @@ interface DialogClient {
     boolean validate_nsec(string nsec);
     string derive_npub(string nsec);
 };
+
+// Utility interface for key operations before a client exists
+interface KeysHelper {
+    constructor();
+    string generate_nsec();
+    boolean validate_nsec(string nsec);
+    string derive_npub(string nsec);
+};
