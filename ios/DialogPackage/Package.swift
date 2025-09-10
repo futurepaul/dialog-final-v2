@@ -15,7 +15,7 @@ let package = Package(
         ),
         .binaryTarget(
             name: "dialogFFI",
-            path: "XCFrameworks/dialogFFI_v18.xcframework"
+            path: "XCFrameworks/dialogFFI_v20.xcframework"
         )
     ]
 )

@@ -12,26 +12,20 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Configuration
-NAK_BINARY="./dialog_lib/nak-negentropy"
+NAK_BINARY="./nak-negentropy"
 NAK_PORT=10548
-TEST_NSEC="nsec1ufnus6pju578ste3v90xd5m2decpuzpql2295m3sknqcjzyys9ls0qlc85"
+if [ -z "$DIALOG_NSEC" ]; then
+  echo -e "${RED}DIALOG_NSEC not set. Export your test nsec before running.${NC}"
+  exit 1
+fi
 CLI_BINARY="./dialog_cli/target/release/dialog_cli"
 RELAY_URL="ws://localhost:$NAK_PORT"
 
 # Check if nak-negentropy exists, if not try system nak
 if [ ! -f "$NAK_BINARY" ]; then
-    echo -e "${YELLOW}Custom nak-negentropy not found at $NAK_BINARY, trying system nak...${NC}"
-    if command -v nak &> /dev/null; then
-        NAK_BINARY="nak"
-        echo -e "${GREEN}Using system nak${NC}"
-    elif [ -f "$HOME/go/bin/nak" ]; then
-        NAK_BINARY="$HOME/go/bin/nak"
-        echo -e "${GREEN}Using nak from ~/go/bin${NC}"
-    else
-        echo -e "${RED}Error: Neither ./dialog_lib/nak-negentropy nor system nak found${NC}"
-        echo "Please run ./setup_nak_local.sh first or install nak"
-        exit 1
-    fi
+  echo -e "${RED}Error: $NAK_BINARY not found${NC}"
+  echo "Please run ./setup_nak_local.sh first"
+  exit 1
 fi
 
 # Build the CLI if needed

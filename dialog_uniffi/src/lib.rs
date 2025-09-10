@@ -1,7 +1,6 @@
-mod mock_data;
 mod models;
 
-use models::{Note, Event, Command};
+pub use models::{Note, Event, Command};
 
 use dialog_lib::{Dialog, Note as LibNote};
 use nostr_sdk::prelude::*;

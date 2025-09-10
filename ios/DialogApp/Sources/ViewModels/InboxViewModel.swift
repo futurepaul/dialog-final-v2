@@ -17,9 +17,12 @@ class InboxViewModel: ObservableObject {
     private let scrollPositionKey = "dialog.scrollPosition"
     
     init() {
-        // For testing - in production this would come from secure storage
-        let testNsec = "nsec1ufnus6pju578ste3v90xd5m2decpuzpql2295m3sknqcjzyys9ls0qlc85"
-        self.client = DialogClient(nsec: testNsec)
+        // Read nsec from environment for development (set in Xcode scheme)
+        let env = ProcessInfo.processInfo.environment
+        guard let nsec = env["DIALOG_NSEC"], !nsec.isEmpty else {
+            fatalError("DIALOG_NSEC not set. Configure in your Xcode Run scheme Environment Variables.")
+        }
+        self.client = DialogClient(nsec: nsec)
     }
     
     var displayedNotes: [Note] {

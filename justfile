@@ -54,7 +54,10 @@ clean-ios:
 
 # Build iOS app quickly (reuse existing Rust artifacts)
 ios-fast:
-    SKIP_RUST=1 bash build-uniffi-package.sh
+    # Ensure generated artifacts exist; if missing, run full packaging
+    bash -lc '[ -f ios/DialogPackage/Sources/Dialog/dialog.swift ] && ls ios/DialogPackage/XCFrameworks/*.xcframework >/dev/null 2>&1 \
+        && (echo "Using existing bindings + XCFramework" && SKIP_RUST=1 bash build-uniffi-package.sh) \
+        || (echo "Bindings/XCFramework missing; running full packaging" && bash build-uniffi-package.sh)'
     cd ios && (command -v xcodegen >/dev/null 2>&1 && xcodegen generate || echo "xcodegen not found, using existing .xcodeproj") \
         && xcodebuild -scheme DialogApp -resolvePackageDependencies \
         -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.4' \

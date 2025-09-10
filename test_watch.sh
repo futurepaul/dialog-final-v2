@@ -4,8 +4,10 @@
 
 set -e
 
-TEST_NSEC="nsec1ufnus6pju578ste3v90xd5m2decpuzpql2295m3sknqcjzyys9ls0qlc85"
-export DIALOG_NSEC=$TEST_NSEC
+if [ -z "$DIALOG_NSEC" ]; then
+  echo "DIALOG_NSEC not set. Export your test nsec before running."
+  exit 1
+fi
 
 echo "=== Testing Watch Mode ==="
 echo ""

@@ -17,7 +17,12 @@ DerivedData/
 target/
 *.rs.bk
 
-# UniFFI generated XCFramework  
+# UniFFI generated artifacts (root legacy + current ios path)
 DialogPackage/XCFrameworks/
 DialogPackage/Sources/Dialog/*.swift
 !DialogPackage/Sources/Dialog/DialogFFIExports.swift
+ios/DialogPackage/XCFrameworks/
+ios/DialogPackage/Sources/Dialog/*.swift
+ios/DialogPackage/Sources/Dialog/*.h
+ios/DialogPackage/Sources/Dialog/*.modulemap
+ios/DialogPackage/.xcframework-version
