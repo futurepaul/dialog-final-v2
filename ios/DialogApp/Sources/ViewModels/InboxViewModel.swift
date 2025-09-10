@@ -139,6 +139,10 @@ class InboxViewModel: ObservableObject {
         client.sendCommand(cmd: Command.setTagFilter(tag: tag))
     }
     
+    func search(_ query: String) {
+        client.sendCommand(cmd: Command.searchNotes(query: query))
+    }
+    
     func markAsRead(_ noteId: String) {
         // Fire-and-forget command
         client.sendCommand(cmd: Command.markAsRead(id: noteId))

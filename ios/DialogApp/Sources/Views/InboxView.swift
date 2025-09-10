@@ -4,6 +4,8 @@ import Dialog
 struct InboxView: View {
     @StateObject private var viewModel = InboxViewModel()
     @State private var messageText = ""
+    @State private var searchQuery = ""
+    @State private var searchWorkItem: DispatchWorkItem?
     @State private var showingTopicPicker = false
     @State private var showingSettings = false
     @FocusState private var isInputFocused: Bool
@@ -24,6 +26,28 @@ struct InboxView: View {
                 // Messages list
                 ScrollViewReader { proxy in
                     ScrollView {
+                        // Search bar
+                        HStack {
+                            Image(systemName: "magnifyingglass")
+                                .foregroundStyle(.secondary)
+                            TextField("Search", text: $searchQuery)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .onChange(of: searchQuery) { _, new in
+                                    searchWorkItem?.cancel()
+                                    let work = DispatchWorkItem { [new] in
+                                        if new.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                            viewModel.setTagFilter(viewModel.currentTag)
+                                            viewModel.start() // refresh notes
+                                        } else {
+                                            viewModel.search(new)
+                                        }
+                                    }
+                                    searchWorkItem = work
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
+                                }
+                        }
+                        .padding(.horizontal)
                         LazyVStack(spacing: 2) {
                             ForEach(Array(viewModel.displayedNotes.enumerated()), id: \.element.id) { index, note in
                                 NoteBubble(
