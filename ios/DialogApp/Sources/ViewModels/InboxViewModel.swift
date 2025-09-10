@@ -49,7 +49,7 @@ class InboxViewModel: ObservableObject {
         
         // Connect to a relay so create/list/watch work
         // Hardcode relay for reliability during development
-        client.sendCommand(cmd: Command.connectRelay(relayUrl: "wss://nos.lol"))
+        client.sendCommand(cmd: Command.connectRelay(relayUrl: "wss://relay.damus.io"))
         
         // Get initial data (synchronous queries)
         print("[swift] getNotes/getAllTags (sync) before events")
