@@ -21,11 +21,16 @@ class InboxViewModel: ObservableObject {
     init() {
         // Read nsec from environment for development (set in Xcode scheme)
         let env = ProcessInfo.processInfo.environment
-        guard let nsec = env["DIALOG_NSEC"], !nsec.isEmpty else {
-            fatalError("DIALOG_NSEC not set. Configure in your Xcode Run scheme Environment Variables.")
+        if let data = KeychainService.read(key: "nsec"), let key = String(data: data, encoding: .utf8), !key.isEmpty {
+            self.client = DialogClient(nsec: key)
+            self.nsecInUse = key
+        } else if let nsec = env["DIALOG_NSEC"], !nsec.isEmpty {
+            self.client = DialogClient(nsec: nsec)
+            self.nsecInUse = nsec
+            _ = KeychainService.save(key: "nsec", data: Data(nsec.utf8))
+        } else {
+            fatalError("nsec not found in Keychain and DIALOG_NSEC not set. Add to Keychain or set in scheme env.")
         }
-        self.client = DialogClient(nsec: nsec)
-        self.nsecInUse = nsec
     }
     
     var displayedNotes: [Note] {
