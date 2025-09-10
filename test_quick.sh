@@ -33,15 +33,15 @@ TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
 NOTE_TEXT="Test note created at $TIMESTAMP #quicktest"
 
 echo "Creating test note..."
-./dialog_cli/target/release/dialog_cli create "$NOTE_TEXT"
+./target/release/dialog_cli create "$NOTE_TEXT"
 
 echo ""
 echo "Listing notes..."
-./dialog_cli/target/release/dialog_cli list --limit 5
+./target/release/dialog_cli list --limit 5
 
 echo ""
 echo "Listing notes with #quicktest tag..."
-./dialog_cli/target/release/dialog_cli list --tag quicktest --limit 5
+./target/release/dialog_cli list --tag quicktest --limit 5
 
 echo ""
 echo "✓ Quick test complete!"

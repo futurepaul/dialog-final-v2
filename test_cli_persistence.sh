@@ -18,7 +18,7 @@ if [ -z "$DIALOG_NSEC" ]; then
   echo -e "${RED}DIALOG_NSEC not set. Export your test nsec before running.${NC}"
   exit 1
 fi
-CLI_BINARY="./dialog_cli/target/release/dialog_cli"
+CLI_BINARY="./target/release/dialog_cli"
 RELAY_URL="ws://localhost:$NAK_PORT"
 
 # Check if nak-negentropy exists, if not try system nak
