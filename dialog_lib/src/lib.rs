@@ -57,7 +57,7 @@ impl Dialog {
     }
 
     pub async fn connect_relay(&self, url: &str) -> Result<()> {
-        eprintln!("[lib] connect_relay: adding {}", url);
+        eprintln!("[lib] connect_relay: adding {url}");
         self.client.add_relay(url).await?;
         eprintln!("[lib] connect_relay: connecting");
         self.client.connect().await;

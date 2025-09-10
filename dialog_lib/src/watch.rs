@@ -17,10 +17,10 @@ impl Dialog {
             .kind(Kind::from(1059))
             .since(Timestamp::now());
 
-        eprintln!("DEBUG: Creating subscription with filter: {:?}", filter);
+        eprintln!("DEBUG: Creating subscription with filter: {filter:?}");
         let output = self.client.subscribe(vec![filter], None).await?;
         let sub_id = output.val;
-        eprintln!("DEBUG: Subscription created with id: {}", sub_id);
+        eprintln!("DEBUG: Subscription created with id: {sub_id}");
 
         tokio::spawn(async move {
             let mut notifications = client.notifications();
@@ -37,8 +37,7 @@ impl Dialog {
                         } = message
                         {
                             eprintln!(
-                                "DEBUG: Got event from subscription: {} (our id: {})",
-                                subscription_id, sub_id
+                                "DEBUG: Got event from subscription: {subscription_id} (our id: {sub_id})",
                             );
                             if subscription_id == sub_id
                                 && event.kind == Kind::from(1059)
@@ -85,11 +84,11 @@ impl Dialog {
                         }
                     }
                     Ok(other) => {
-                        eprintln!("DEBUG: Got other notification: {:?}", other);
+                        eprintln!("DEBUG: Got other notification: {other:?}");
                         continue;
                     }
                     Err(e) => {
-                        eprintln!("DEBUG: Error receiving notification: {:?}", e);
+                        eprintln!("DEBUG: Error receiving notification: {e:?}");
                         break;
                     }
                 }

@@ -21,7 +21,10 @@ fn uniffi_end_to_end_note_flow() {
     let _server = TestServer::new();
 
     // Create client
-    let client = Arc::new(DialogClient::new(TEST_NSEC.to_string()));
+    let test_nsec = std::env::var("DIALOG_NSEC_TEST")
+        .or_else(|_| std::env::var("DIALOG_NSEC"))
+        .expect("Set DIALOG_NSEC_TEST or DIALOG_NSEC in CI/environment");
+    let client = Arc::new(DialogClient::new(test_nsec));
 
     // Wire listener
     let (tx, rx) = mpsc::channel();

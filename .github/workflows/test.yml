@@ -45,12 +45,14 @@ jobs:
       working-directory: dialog_lib
       env:
         DIALOG_DATA_DIR: ${{ runner.temp }}/dialog-${{ github.run_id }}
+        DIALOG_NSEC_TEST: ${{ secrets.DIALOG_NSEC_TEST }}
       run: cargo test --verbose -- --test-threads=1 --nocapture
 
     - name: Run dialog_uniffi integration test
       working-directory: .
       env:
         DIALOG_DATA_DIR: ${{ runner.temp }}/dialog-${{ github.run_id }}
+        DIALOG_NSEC_TEST: ${{ secrets.DIALOG_NSEC_TEST }}
       run: cargo test -p dialog_uniffi --test integration -- --test-threads=1 --nocapture
     
     - name: Run clippy

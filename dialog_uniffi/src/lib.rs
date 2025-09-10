@@ -45,7 +45,7 @@ impl DialogClient {
                     eprintln!("[uniffi] Dialog initialized; pubkey={}", d.public_key());
                     d
                 }
-                Err(e) => panic!("[uniffi] Failed to initialize Dialog: {}", e),
+                Err(e) => panic!("[uniffi] Failed to initialize Dialog: {e}"),
             }
         });
         if DIALOG.set(dialog).is_err() {
@@ -94,7 +94,7 @@ impl DialogClient {
         // Spawn listener on background thread
         rt().spawn(async move {
             while let Ok(event) = rx.recv().await {
-                eprintln!("[uniffi] Dispatching event to Swift: {:?}", event);
+                eprintln!("[uniffi] Dispatching event to Swift: {event:?}");
                 // Callback to Swift happens on background thread
                 // Swift will handle @MainActor transition
                 listener_clone.on_event(event);
@@ -124,14 +124,14 @@ impl DialogClient {
         rt().spawn(async move {
             match cmd {
                 Command::ConnectRelay { relay_url } => {
-                    eprintln!("[uniffi] Connecting to relay: {}", relay_url);
+                    eprintln!("[uniffi] Connecting to relay: {relay_url}");
                     if let Err(e) = DIALOG.get().unwrap().connect_relay(&relay_url).await {
-                        eprintln!("[uniffi] Failed to connect to relay: {}", e);
+                        eprintln!("[uniffi] Failed to connect to relay: {e}");
                     } else {
-                        eprintln!("[uniffi] Connected to relay: {}", relay_url);
+                        eprintln!("[uniffi] Connected to relay: {relay_url}");
                         // After connecting, sync recent data and refresh UI
                         if let Err(e) = DIALOG.get().unwrap().sync_notes().await {
-                            eprintln!("[uniffi] sync_notes failed: {}", e);
+                            eprintln!("[uniffi] sync_notes failed: {e}");
                         } else {
                             // Load updated notes and emit NotesLoaded
                             if let Ok(lib_notes) = DIALOG.get().unwrap().list_notes(100).await {
@@ -159,15 +159,15 @@ impl DialogClient {
                     self_clone.create_note(text).await;
                 }
                 Command::SetTagFilter { tag } => {
-                    eprintln!("[uniffi] SetTagFilter tag={:?}", tag);
+                    eprintln!("[uniffi] SetTagFilter tag={tag:?}");
                     self_clone.set_filter(tag).await;
                 }
                 Command::MarkAsRead { id } => {
-                    eprintln!("[uniffi] MarkAsRead id={}", id);
+                    eprintln!("[uniffi] MarkAsRead id={id}");
                     self_clone.mark_as_read(id).await;
                 }
                 Command::LoadNotes { limit } => {
-                    eprintln!("[uniffi] LoadNotes limit={} (sync from dialog_lib)", limit);
+                    eprintln!("[uniffi] LoadNotes limit={limit} (sync from dialog_lib)");
                     // Sync from dialog_lib
                     if let Ok(lib_notes) = DIALOG.get().unwrap().list_notes(limit as usize).await {
                         let mut notes_map = self_clone.notes.write().await;
@@ -191,11 +191,11 @@ impl DialogClient {
                     }
                 }
                 Command::DeleteNote { id } => {
-                    eprintln!("[uniffi] DeleteNote id={}", id);
+                    eprintln!("[uniffi] DeleteNote id={id}");
                     self_clone.delete_note(id).await;
                 }
                 Command::SearchNotes { query } => {
-                    eprintln!("[uniffi] SearchNotes query='{}'", query);
+                    eprintln!("[uniffi] SearchNotes query='{query}'");
                     self_clone.search_notes(query).await;
                 }
             }
@@ -215,9 +215,7 @@ impl DialogClient {
         };
         let mut result: Vec<Note> = notes
             .values()
-            .filter(|n| {
-                tag.as_ref().map_or(true, |t| n.tags.contains(t))
-            })
+            .filter(|n| tag.as_ref().is_none_or(|t| n.tags.contains(t)))
             .cloned()
             .collect();
         

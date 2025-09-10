@@ -33,7 +33,7 @@ async fn test_dialog_complete() {
     // Test with unicode and special characters
     let secret_text = "Secret message with unicode and special chars!";
     let secret_id = dialog.create_note(secret_text).await.unwrap();
-    println!("Created secret note with id: {}", secret_id);
+    println!("Created secret note with id: {secret_id}");
 
     // Small delay for async database ingestion
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
@@ -120,7 +120,7 @@ async fn test_dialog_complete() {
     // Test sync doesn't break anything
     match dialog.sync_notes().await {
         Ok(_) => println!("Sync successful"),
-        Err(e) => println!("Sync not available: {} (this is ok)", e),
+        Err(e) => println!("Sync not available: {e} (this is ok)"),
     }
 
     // Verify data still intact after sync attempt

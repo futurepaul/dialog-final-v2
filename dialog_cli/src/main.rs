@@ -98,9 +98,9 @@ async fn main() -> Result<()> {
         let pubkey = keys.public_key();
         println!("Config:");
         println!("  Pubkey: {}", pubkey.to_bech32()?);
-        println!("  Relay:  {}", relay_url);
+        println!("  Relay:  {relay_url}");
         match data_dir_env {
-            Some(ref dir) => println!("  DataDir: {}", dir),
+            Some(ref dir) => println!("  DataDir: {dir}"),
             None => println!("  DataDir: <OS default>"),
         }
         return Ok(());
@@ -117,9 +117,9 @@ async fn main() -> Result<()> {
     let dialog = Dialog::new(&nsec).await?;
 
     // Connect to relay
-    eprintln!("Using relay: {}", relay_url);
+    eprintln!("Using relay: {relay_url}");
     if let Err(e) = dialog.connect_relay(&relay_url).await {
-        eprintln!("Warning: Could not connect to relay {}: {}", relay_url, e);
+        eprintln!("Warning: Could not connect to relay {relay_url}: {e}");
         eprintln!("Running in offline mode.");
     }
 
@@ -148,7 +148,7 @@ async fn main() -> Result<()> {
 
                 // First, show existing notes
                 let existing_notes = if let Some(ref tag) = tag {
-                    println!("=== Existing notes with tag: #{} ===", tag);
+                    println!("=== Existing notes with tag: #{tag} ===");
                     dialog.list_by_tag(tag, limit).await?
                 } else {
                     println!("=== Recent notes ===");
@@ -183,7 +183,7 @@ async fn main() -> Result<()> {
             } else {
                 // Regular list mode
                 let notes = if let Some(tag) = tag {
-                    println!("Listing notes with tag: #{}", tag);
+                    println!("Listing notes with tag: #{tag}");
                     dialog.list_by_tag(&tag, limit).await?
                 } else {
                     dialog.list_notes(limit).await?
