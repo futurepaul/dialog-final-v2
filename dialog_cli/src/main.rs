@@ -146,6 +146,14 @@ async fn main() -> Result<()> {
         }
 
         Commands::List { limit, tag, watch } => {
+            // Try to sync with relay (Negentropy or plain fallback) so we see external changes
+            if let Err(e) = dialog.sync_notes().await {
+                eprintln!("Sync via Negentropy failed: {e}. Falling back to plain fetch...");
+                let _ = dialog.sync_notes_plain(None).await.map_err(|e2| {
+                    eprintln!("Plain fetch failed: {e2}");
+                    e2
+                });
+            }
             if watch {
                 // Watch mode - show existing notes first, then subscribe to new ones
                 println!("Entering watch mode. Press Ctrl+C to exit.\n");

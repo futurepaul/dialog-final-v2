@@ -12,5 +12,5 @@ pub use keys::KeysHelper;
 
 uniffi::include_scaffolding!("dialog");
 
-use std::sync::Arc;
+// No top-level uses needed here
 pub use state::DialogListener;

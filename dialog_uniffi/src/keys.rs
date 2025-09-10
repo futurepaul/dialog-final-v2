@@ -21,3 +21,7 @@ impl KeysHelper {
         }
     }
 }
+
+impl Default for KeysHelper {
+    fn default() -> Self { Self::new() }
+}
