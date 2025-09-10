@@ -21,6 +21,11 @@ iOS App
 - Build package + app: `just ios` (or `just ios-fast` for quicker rebuilds)
 - The app connects to `wss://relay.damus.io`, syncs, and starts live watch.
 
+Relay Support
+- The project currently requires relays with Negentropy (NDB) support for sync.
+- Default relay: `wss://relay.damus.io` (supports Negentropy).
+- Local testing: run a nak relay with our Negentropy patch (`./setup_nak_local.sh`), then set `DIALOG_RELAY=ws://localhost:10548`.
+
 ## Useful Commands
 - `just package` — regenerate Swift bindings + XCFramework (auto-bumps version)
 - `just package-fast` — regenerate without rebuilding Rust
@@ -40,4 +45,3 @@ iOS App
 - For local relays (`ws://localhost:10548`), add ATS exceptions; the app defaults to `wss://relay.damus.io`.
 
 See `docs/BUILD_GUIDE.md` for deeper build details and `docs/ARCHITECTURE.md` for design.
-
