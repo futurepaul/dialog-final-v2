@@ -19,7 +19,9 @@ impl TestServer {
             .output();
 
         // Parse keys to get pubkey for cleanup
-        let test_nsec = std::env::var("DIALOG_NSEC_TEST").or_else(|_| std::env::var("DIALOG_NSEC")).expect("Set DIALOG_NSEC_TEST or DIALOG_NSEC in CI/environment");
+        let test_nsec = std::env::var("DIALOG_NSEC_TEST")
+            .or_else(|_| std::env::var("DIALOG_NSEC"))
+            .expect("Set DIALOG_NSEC_TEST or DIALOG_NSEC in CI/environment");
         let keys = Keys::parse(&test_nsec).unwrap();
         let pubkey = keys.public_key().to_hex();
 
@@ -28,11 +30,21 @@ impl TestServer {
 
         // Start nak server with negentropy support
         // Resolve nak binary at repository root (parent of this crate)
-        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_path_buf();
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .to_path_buf();
         let nak_path = repo_root.join("nak-negentropy");
-        assert!(nak_path.exists(), "nak-negentropy not found at {}. Run ./setup_nak_local.sh at repo root.", nak_path.display());
+        assert!(
+            nak_path.exists(),
+            "nak-negentropy not found at {}. Run ./setup_nak_local.sh at repo root.",
+            nak_path.display()
+        );
 
-        println!("Starting nak server with negentropy on port 10548 using {}...", nak_path.display());
+        println!(
+            "Starting nak server with negentropy on port 10548 using {}...",
+            nak_path.display()
+        );
         let process = Command::new(nak_path)
             .args(&["serve", "--port", "10548"])
             .spawn()
@@ -46,7 +58,9 @@ impl TestServer {
     }
 
     pub async fn create_dialog(&self) -> Dialog {
-        let test_nsec = std::env::var("DIALOG_NSEC_TEST").or_else(|_| std::env::var("DIALOG_NSEC")).expect("Set DIALOG_NSEC_TEST or DIALOG_NSEC in CI/environment");
+        let test_nsec = std::env::var("DIALOG_NSEC_TEST")
+            .or_else(|_| std::env::var("DIALOG_NSEC"))
+            .expect("Set DIALOG_NSEC_TEST or DIALOG_NSEC in CI/environment");
         Dialog::new_with_relay(&test_nsec, TEST_RELAY_URL)
             .await
             .expect("Failed to create Dialog")
