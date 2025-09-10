@@ -80,8 +80,7 @@ echo ""
 echo "=== RUN 1: Creating initial notes ==="
 echo ""
 
-# Create some notes in the first run
-export DIALOG_NSEC=$TEST_NSEC
+# Create some notes in the first run (DIALOG_NSEC must be provided via environment)
 
 echo "Creating note 1..."
 $CLI_BINARY create "First test note #persistence #test1" || exit 1
