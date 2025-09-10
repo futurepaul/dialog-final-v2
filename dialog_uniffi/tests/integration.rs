@@ -48,13 +48,8 @@ fn uniffi_end_to_end_note_flow() {
     let mut saw_added = false;
     let deadline = std::time::Instant::now() + Duration::from_secs(5);
     while std::time::Instant::now() < deadline {
-        if let Ok(ev) = rx.recv_timeout(Duration::from_millis(200)) {
-            match ev {
-                Event::NoteAdded { note } => {
-                    if note.text == text { saw_added = true; break; }
-                }
-                _ => {}
-            }
+        if let Ok(Event::NoteAdded { note }) = rx.recv_timeout(Duration::from_millis(200)) {
+            if note.text == text { saw_added = true; break; }
         }
     }
     assert!(saw_added, "Should receive NoteAdded for created note");

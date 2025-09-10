@@ -1,6 +1,7 @@
 mod models;
+use models::TagCount;
 
-pub use models::{Note, Event, Command};
+pub use models::{Note, Event, Command, SyncMode};
 
 use dialog_lib::{Dialog, Note as LibNote};
 use nostr_sdk::prelude::*;
@@ -33,6 +34,7 @@ pub struct DialogClient {
     current_filter: Arc<RwLock<Option<String>>>,
     event_tx: broadcast::Sender<Event>,
     watch_handle: Arc<RwLock<Option<tokio::task::JoinHandle<()>>>>,
+    sync_mode: Arc<RwLock<SyncMode>>, // Default from env or Negentropy
 }
 
 impl DialogClient {
@@ -53,11 +55,17 @@ impl DialogClient {
         }
         
         let (event_tx, _) = broadcast::channel(1024);
+        // Resolve sync mode from env (DIALOG_SYNC_MODE)
+        let sync_mode = match std::env::var("DIALOG_SYNC_MODE").ok().as_deref() {
+            Some("subscribe") => SyncMode::Subscribe,
+            _ => SyncMode::Negentropy,
+        };
         let client = Self {
             notes: Arc::new(RwLock::new(HashMap::new())),
             current_filter: Arc::new(RwLock::new(None)),
             event_tx,
             watch_handle: Arc::new(RwLock::new(None)),
+            sync_mode: Arc::new(RwLock::new(sync_mode)),
         };
         
         // Load initial notes from dialog_lib
@@ -120,7 +128,7 @@ impl DialogClient {
     pub fn send_command(self: Arc<Self>, cmd: Command) {
         // Fire-and-forget: spawn work on Tokio runtime
         let self_clone = self.clone();
-        eprintln!("[uniffi] send_command: {:?}", cmd);
+        eprintln!("[uniffi] send_command: {cmd:?}");
         rt().spawn(async move {
             match cmd {
                 Command::ConnectRelay { relay_url } => {
@@ -129,26 +137,32 @@ impl DialogClient {
                         eprintln!("[uniffi] Failed to connect to relay: {e}");
                     } else {
                         eprintln!("[uniffi] Connected to relay: {relay_url}");
-                        // After connecting, sync recent data and refresh UI
-                        if let Err(e) = DIALOG.get().unwrap().sync_notes().await {
-                            eprintln!("[uniffi] sync_notes failed: {e}");
-                        } else {
-                            // Load updated notes and emit NotesLoaded
-                            if let Ok(lib_notes) = DIALOG.get().unwrap().list_notes(100).await {
-                                let mut notes_map = self_clone.notes.write().await;
-                                let mut notes = Vec::new();
-                                for lib_note in lib_notes {
-                                    let note = convert_lib_note_to_uniffi(lib_note);
-                                    notes_map.insert(note.id.clone(), note.clone());
-                                    notes.push(note);
+                        // After connecting, either Negentropy sync or plain subscribe based on mode
+                        match *self_clone.sync_mode.read().await {
+                            SyncMode::Negentropy => {
+                                if let Err(e) = DIALOG.get().unwrap().sync_notes().await {
+                                    eprintln!("[uniffi] sync_notes failed: {e}");
                                 }
-                                // Apply filter if set
-                                let filter = self_clone.current_filter.read().await.clone();
-                                if let Some(tag) = filter {
-                                    notes.retain(|n| n.tags.contains(&tag));
-                                }
-                                let _ = self_clone.event_tx.send(Event::NotesLoaded { notes });
                             }
+                            SyncMode::Subscribe => {
+                                eprintln!("[uniffi] Using plain subscribe mode; skipping negentropy sync");
+                            }
+                        }
+                        // Load updated notes and emit NotesLoaded from local cache
+                        if let Ok(lib_notes) = DIALOG.get().unwrap().list_notes(100).await {
+                            let mut notes_map = self_clone.notes.write().await;
+                            let mut notes = Vec::new();
+                            for lib_note in lib_notes {
+                                let note = convert_lib_note_to_uniffi(lib_note);
+                                notes_map.insert(note.id.clone(), note.clone());
+                                notes.push(note);
+                            }
+                            // Apply filter if set
+                            let filter = self_clone.current_filter.read().await.clone();
+                            if let Some(tag) = filter {
+                                notes.retain(|n| n.tags.contains(&tag));
+                            }
+                            let _ = self_clone.event_tx.send(Event::NotesLoaded { notes });
                         }
                         // Ensure watch loop is running
                         self_clone.maybe_start_watch().await;
@@ -197,6 +211,10 @@ impl DialogClient {
                 Command::SearchNotes { query } => {
                     eprintln!("[uniffi] SearchNotes query='{query}'");
                     self_clone.search_notes(query).await;
+                }
+                Command::SetSyncMode { mode } => {
+                    eprintln!("[uniffi] SetSyncMode to {mode:?}");
+                    *self_clone.sync_mode.write().await = mode;
                 }
             }
         });
@@ -251,8 +269,27 @@ impl DialogClient {
         notes
             .values()
             .filter(|n| !n.is_read)
-            .filter(|n| tag.as_ref().map_or(true, |t| n.tags.contains(t)))
+            .filter(|n| tag.as_ref().is_none_or(|t| n.tags.contains(t)))
             .count() as u32
+    }
+
+    pub fn get_tag_counts(&self) -> Vec<TagCount> {
+        let notes = match self.notes.try_read() {
+            Ok(guard) => guard,
+            Err(_) => return Vec::new(),
+        };
+        let mut counts: std::collections::HashMap<String, u32> = HashMap::new();
+        for note in notes.values() {
+            for tag in &note.tags {
+                *counts.entry(tag.clone()).or_insert(0) += 1;
+            }
+        }
+        let mut result: Vec<TagCount> = counts
+            .into_iter()
+            .map(|(tag, count)| TagCount { tag, count })
+            .collect();
+        result.sort_by(|a, b| a.tag.cmp(&b.tag));
+        result
     }
     
     // Private async helpers
@@ -282,7 +319,7 @@ impl DialogClient {
                 let _ = self.event_tx.send(Event::NoteAdded { note });
             }
             Err(e) => {
-                eprintln!("[uniffi] create_note() failed: {}", e);
+                eprintln!("[uniffi] create_note() failed: {e}");
             }
         }
     }
@@ -299,7 +336,7 @@ impl DialogClient {
     async fn mark_as_read(self: Arc<Self>, id: String) {
         // Mark as read via dialog_lib
         if let Ok(event_id) = EventId::from_hex(&id) {
-            if let Ok(_) = DIALOG.get().unwrap().mark_as_read(&event_id).await {
+            if (DIALOG.get().unwrap().mark_as_read(&event_id).await).is_ok() {
                 let mut notes = self.notes.write().await;
                 if let Some(note) = notes.get_mut(&id) {
                     note.is_read = true;
@@ -373,7 +410,31 @@ impl DialogClient {
                 *self.watch_handle.write().await = Some(handle);
             }
             Err(e) => {
-                eprintln!("[uniffi] watch_notes() failed to start: {}", e);
+                eprintln!("[uniffi] watch_notes() failed to start: {e}");
+            }
+        }
+    }
+}
+
+impl DialogClient {
+    // Setup helpers (instance methods for now)
+    pub fn validate_nsec(&self, nsec: String) -> bool {
+        dialog_lib::validate_nsec(&nsec).is_ok()
+    }
+
+    pub fn derive_npub(&self, nsec: String) -> String {
+        match nostr_sdk::prelude::Keys::parse(&nsec) {
+            Ok(keys) => keys.public_key().to_bech32().unwrap_or_default(),
+            Err(_) => String::new(),
+        }
+    }
+
+    // Data management
+    pub fn clear_data_for_current_pubkey(&self) {
+        if let Some(dialog) = DIALOG.get() {
+            let pubkey = dialog.public_key().to_hex();
+            if let Err(e) = dialog_lib::clean_test_storage(&pubkey) {
+                eprintln!("[uniffi] clear_data_for_current_pubkey error: {e}");
             }
         }
     }

@@ -15,7 +15,7 @@ impl TestServer {
     pub async fn new() -> Self {
         // Kill any existing nak servers on our port
         let _ = Command::new("pkill")
-            .args(&["-f", "nak.*serve.*10548"])
+            .args(["-f", "nak.*serve.*10548"])
             .output();
 
         // Parse keys to get pubkey for cleanup
@@ -46,7 +46,7 @@ impl TestServer {
             nak_path.display()
         );
         let process = Command::new(nak_path)
-            .args(&["serve", "--port", "10548"])
+            .args(["serve", "--port", "10548"])
             .spawn()
             .expect("Failed to start nak server");
 

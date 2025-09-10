@@ -40,6 +40,12 @@ impl TestServer {
     }
 }
 
+impl Default for TestServer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Drop for TestServer {
     fn drop(&mut self) {
         let _ = self.process.kill();

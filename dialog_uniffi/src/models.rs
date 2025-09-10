@@ -11,6 +11,12 @@ pub struct Note {
     pub is_synced: bool,
 }
 
+#[derive(Clone, Debug)]
+pub struct TagCount {
+    pub tag: String,
+    pub count: u32,
+}
+
 impl Note {
     pub fn from_text(text: String) -> Self {
         // Parse hashtags
@@ -44,6 +50,12 @@ pub enum Event {
 }
 
 #[derive(Clone, Debug)]
+pub enum SyncMode {
+    Negentropy,
+    Subscribe,
+}
+
+#[derive(Clone, Debug)]
 pub enum Command {
     ConnectRelay { relay_url: String },
     CreateNote { text: String },
@@ -52,4 +64,5 @@ pub enum Command {
     SetTagFilter { tag: Option<String> },
     LoadNotes { limit: u32 },
     SearchNotes { query: String },
+    SetSyncMode { mode: SyncMode },
 }

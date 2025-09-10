@@ -9,6 +9,11 @@ dictionary Note {
     boolean is_synced;
 };
 
+dictionary TagCount {
+    string tag;
+    u32 count;
+};
+
 [Enum]
 interface Event {
     Ready();
@@ -22,6 +27,12 @@ interface Event {
 };
 
 [Enum]
+interface SyncMode {
+    Negentropy();
+    Subscribe();
+};
+
+[Enum]
 interface Command {
     ConnectRelay(string relay_url);
     CreateNote(string text);
@@ -30,6 +41,7 @@ interface Command {
     SetTagFilter(string? tag);
     LoadNotes(u32 limit);
     SearchNotes(string query);
+    SetSyncMode(SyncMode mode);
 };
 
 callback interface DialogListener {
@@ -51,4 +63,9 @@ interface DialogClient {
     sequence<string> get_all_tags();
     Note? get_note(string id);
     u32 get_unread_count(string? tag);
+    sequence<TagCount> get_tag_counts();
+    void clear_data_for_current_pubkey();
+    // Setup helpers (instance methods for now)
+    boolean validate_nsec(string nsec);
+    string derive_npub(string nsec);
 };

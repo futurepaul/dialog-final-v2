@@ -90,7 +90,7 @@ async fn test_dialog_complete() {
 
     // Create multiple notes rapidly
     for i in 0..10 {
-        let batch_text = format!("Batch note {} #batch #stress", i);
+        let batch_text = format!("Batch note {i} #batch #stress");
         dialog.create_note(&batch_text).await.unwrap();
     }
 
