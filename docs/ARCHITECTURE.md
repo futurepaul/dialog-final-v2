@@ -82,7 +82,7 @@ func onEvent(_ e: Event) {
 - In-memory state with fast synchronous reads (`try_read()`)
 - Broadcast channel for push updates
 
-### 2. Swift Package (`DialogPackage/`)
+### 2. Swift Package (`ios/DialogPackage/`)
 
 **Purpose:** Clean interface between Rust and iOS app
 
@@ -137,9 +137,9 @@ Rust Code Changes
        ↓
    uniffi-bindgen (Swift + C header)
        ↓
-   XCFramework creation
+   XCFramework creation (versioned)
        ↓
-   XcodeGen project generation
+   xcodegen generate (optional)
        ↓
    xcodebuild (iOS app)
 ```

@@ -346,6 +346,8 @@ fn convert_lib_note_to_uniffi(lib_note: LibNote) -> Note {
         is_synced: lib_note.is_synced,
     }
 }
+
+impl DialogClient {
     async fn maybe_start_watch(self: Arc<Self>) {
         // If a watch is already running, do nothing
         if self.watch_handle.read().await.is_some() {
@@ -378,3 +380,4 @@ fn convert_lib_note_to_uniffi(lib_note: LibNote) -> Note {
             }
         }
     }
+}

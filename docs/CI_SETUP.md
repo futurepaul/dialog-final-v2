@@ -73,10 +73,13 @@ brew install act
 act -P macos-14=-self-hosted
 ```
 
-Or just run our rebuild script which does the same thing:
+Or run the same steps locally via justfile:
 
 ```bash
-./rebuild.sh --clean
+just clean-ios
+just package
+cd ios && xcodegen generate && cd ..
+just ios-fast
 ```
 
 ## Monitoring CI

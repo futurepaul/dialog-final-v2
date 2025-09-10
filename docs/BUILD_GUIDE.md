@@ -1,6 +1,6 @@
 # Build Guide for Dialog UniFFI iOS Integration
 
-This guide documents the complete build process for the Dialog app with Rust backend via UniFFI.
+This guide documents the build process for the Dialog app with a Rust backend via UniFFI.
 
 ## Prerequisites
 
@@ -20,7 +20,7 @@ rustup target add aarch64-apple-darwin    # For macOS support
 ## Project Structure
 
 ```
-ios-mock-frontend-le/
+repo/
 ├── dialog_uniffi/              # Rust crate with UniFFI bindings
 │   ├── Cargo.toml
 │   ├── build.rs               # UniFFI scaffolding generation
@@ -30,62 +30,31 @@ ios-mock-frontend-le/
 │   │   ├── models.rs         # Shared data models
 │   │   └── mock_data.rs      # Mock data generator
 │   └── target/               # Build artifacts (gitignored)
-├── DialogPackage/             # Swift Package wrapping UniFFI
+├── ios/DialogPackage/         # Swift Package wrapping UniFFI
 │   ├── Package.swift
-│   ├── Sources/Dialog/        # Generated Swift code
-│   └── XCFrameworks/         # Binary framework (gitignored)
+│   ├── Sources/Dialog/        # Generated Swift code (UniFFI)
+│   └── XCFrameworks/          # Binary framework (XCFramework)
 ├── ios/                      # iOS app
-│   ├── project-package.yml   # XcodeGen config using Swift Package
+│   ├── project.yml           # XcodeGen config using Swift Package
 │   └── DialogApp/            # App source code
-└── build-uniffi-package.sh   # Main build script
+└── build-uniffi-package.sh   # Packaging script (bindings + XCFramework)
 
 ```
 
 ## Build Process
 
-### Quick Start - One Command
+### Quick Start
 
-After making changes to Rust code, simply run:
-
-```bash
-./rebuild.sh
-```
-
-This single script handles everything:
-1. Builds Rust libraries for all targets
-2. Generates Swift bindings via UniFFI  
-3. Creates XCFramework with proper module setup
-4. Generates Xcode project
-5. Builds the iOS app
-
-### Build Options
-
-```bash
-# Standard rebuild after Rust changes
-./rebuild.sh
-
-# Clean rebuild (removes all artifacts first)
-./rebuild.sh --clean
-
-# Rebuild and run in simulator
-./rebuild.sh --run
-
-# Rebuild and open Xcode
-./rebuild.sh --open
-
-# Clean rebuild and open Xcode
-./rebuild.sh --clean --open
-
-# Show all options
-./rebuild.sh --help
-```
+- Build package + app: `just ios` (runs packaging and builds the app)
+- Faster: `just ios-fast` (reuses Rust artifacts)
+- Only regenerate bindings/XCFramework: `just package` or `just package-fast`
 
 ## Clean Build Process
 
-If you encounter issues, just run:
+If you encounter issues, run:
 
 ```bash
-./rebuild.sh --clean
+just clean-ios && just ios
 ```
 
 This automatically:
@@ -96,25 +65,11 @@ This automatically:
 
 ## Incremental Builds
 
-### After Rust Changes
+### After Changes
 
-```bash
-./rebuild.sh
-```
-
-### After Swift Changes
-
-Just rebuild in Xcode (Cmd+R) - no need to run the script.
-
-### After UDL Changes
-
-If you modified `dialog.udl`, run:
-
-```bash
-./rebuild.sh --clean
-```
-
-The UDL changes require a full rebuild to ensure proper code generation.
+- Rust: `just package` or `just ios`
+- Swift: Xcode build (Cmd+R), or `just ios-fast`
+- UDL: `just package` (bindings regenerate automatically)
 
 ## Important Details
 
@@ -132,7 +87,7 @@ The project is configured for ARM64 only:
 - **Excluded**: x86_64 (Intel simulators not supported)
 - **Included**: arm64 (Apple Silicon Macs, all modern iOS devices)
 
-This is set in `ios/project-package.yml`:
+This is set in `ios/project.yml`:
 ```yaml
 settings:
   EXCLUDED_ARCHS[sdk=iphonesimulator*]: x86_64
@@ -226,13 +181,13 @@ export RUST_BACKTRACE=1
 Verify the generated files are correct:
 ```bash
 # Check Swift bindings
-ls -la DialogPackage/Sources/Dialog/
+ls -la ios/DialogPackage/Sources/Dialog/
 
 # Check XCFramework structure  
-ls -la DialogPackage/XCFrameworks/dialogFFI.xcframework/ios-arm64/Headers/
+ls -la ios/DialogPackage/XCFrameworks/
 
 # Verify module.modulemap exists
-cat DialogPackage/XCFrameworks/dialogFFI.xcframework/ios-arm64/Headers/module.modulemap
+cat ios/DialogPackage/XCFrameworks/*/ios-arm64/Headers/module.modulemap
 ```
 
 ### Xcode Build Logs
@@ -242,13 +197,6 @@ For detailed error messages:
 2. Click on the failed build
 3. Click on individual steps to see full output
 
-## Next Steps
-
-To connect to the real backend instead of mock data:
-
-1. Update `dialog_uniffi/src/lib.rs` to connect to actual services
-2. Remove mock_data.rs or make it conditional
-3. Add network error handling
-4. Implement proper authentication if needed
-
-The architecture is ready - just replace the mock implementation!
+## Notes
+- The app currently connects to `wss://relay.damus.io` by default (see InboxViewModel).
+- The packaging script auto-bumps the XCFramework version and validates UniFFI contracts.
