@@ -34,7 +34,7 @@ struct Cli {
     data_dir: Option<String>,
 
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
@@ -124,7 +124,11 @@ async fn main() -> Result<()> {
     }
 
     // Handle commands
-    match cli.command {
+    let Some(command) = cli.command else {
+        eprintln!("No command provided. Try --help for usage.");
+        return Ok(());
+    };
+    match command {
         Commands::Create { text } => {
             let id = dialog.create_note(&text).await?;
             println!("Created note: {}", id.to_bech32()?);
