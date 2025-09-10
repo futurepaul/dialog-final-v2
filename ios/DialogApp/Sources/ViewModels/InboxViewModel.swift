@@ -185,6 +185,10 @@ class InboxViewModel: ObservableObject {
         Int(client.getUnreadCount(tag: currentTag))
     }
     
+    func fetchAllNotesSnapshot() -> [Note] {
+        client.getNotes(limit: 1000, tag: nil)
+    }
+    
     func refreshTagCounts() {
         var map: [String: Int] = [:]
         for tc in client.getTagCounts() {

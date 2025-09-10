@@ -4,10 +4,9 @@ import Dialog
 struct InboxView: View {
     @StateObject private var viewModel = InboxViewModel()
     @State private var messageText = ""
-    @State private var searchQuery = ""
-    @State private var searchWorkItem: DispatchWorkItem?
     @State private var showingTopicPicker = false
     @State private var showingSettings = false
+    @State private var showingSearch = false
     @FocusState private var isInputFocused: Bool
     @State private var lastVisibleNoteId: String?
     
@@ -20,7 +19,8 @@ struct InboxView: View {
                 // Navigation bar
                 NavigationBar(
                     showingTopicPicker: $showingTopicPicker,
-                    currentTag: viewModel.currentTag
+                    currentTag: viewModel.currentTag,
+                    onSearchTapped: { showingSearch = true }
                 )
                 
                 // Messages list
@@ -36,29 +36,7 @@ struct InboxView: View {
                             }
                             .padding()
                         }
-                        // Search bar (only when we have content)
-                        if !viewModel.displayedNotes.isEmpty {
-                            HStack {
-                                Image(systemName: "magnifyingglass")
-                                    .foregroundStyle(.secondary)
-                                TextField("Search", text: $searchQuery)
-                                    .textInputAutocapitalization(.never)
-                                    .autocorrectionDisabled()
-                                    .onChange(of: searchQuery) { _, new in
-                                        searchWorkItem?.cancel()
-                                        let work = DispatchWorkItem { [new] in
-                                            if new.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                                viewModel.setTagFilter(viewModel.currentTag)
-                                            } else {
-                                                viewModel.search(new)
-                                            }
-                                        }
-                                        searchWorkItem = work
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
-                                    }
-                            }
-                            .padding(.horizontal)
-                        }
+                        // No inline search; search lives in a separate sheet
                         LazyVStack(spacing: 2) {
                             ForEach(Array(viewModel.displayedNotes.enumerated()), id: \.element.id) { index, note in
                                 NoteBubble(
@@ -142,6 +120,9 @@ struct InboxView: View {
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView(viewModel: viewModel, dismiss: { showingSettings = false })
+        }
+        .sheet(isPresented: $showingSearch) {
+            SearchSheet(initialNotes: viewModel.fetchAllNotesSnapshot(), dismiss: { showingSearch = false })
         }
     }
 }
