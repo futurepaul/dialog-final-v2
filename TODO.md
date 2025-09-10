@@ -11,8 +11,9 @@ This is a working checklist derived from FUTURE_PLANS.md. I’ll implement as mu
 
 ## Nostr sync modes
 - [x] Env toggle `DIALOG_SYNC_MODE={negentropy|subscribe}` (fallback if UniFFI toggle not used)
+- [x] Auto-detect: try negentropy, fall back to plain fetch+subscribe on error
 - [x] If `negentropy`: call `Dialog::sync_notes()` then ensure watch loop running
-- [x] If `subscribe`: skip negentropy; rely on `watch_notes()` and local DB, load current cache
+- [x] If `subscribe`: perform initial `fetch_events` snapshot; rely on `watch_notes()` and local DB
 
 ## Read/Unread & Sync status
 - [x] Ensure `is_synced=true` when relay echo arrives (already implied via watch update)
