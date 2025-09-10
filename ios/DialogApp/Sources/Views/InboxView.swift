@@ -5,6 +5,7 @@ struct InboxView: View {
     @StateObject private var viewModel = InboxViewModel()
     @State private var messageText = ""
     @State private var showingTopicPicker = false
+    @State private var showingSettings = false
     @FocusState private var isInputFocused: Bool
     @State private var lastVisibleNoteId: String?
     
@@ -91,12 +92,16 @@ struct InboxView: View {
             TopicPickerView(
                 selectedTag: $viewModel.currentTag,
                 allTags: viewModel.allTags,
-                allNotes: viewModel.notes,
+                tagCounts: viewModel.tagCounts,
                 dismiss: { showingTopicPicker = false },
                 onTagSelected: { tag in
                     viewModel.setTagFilter(tag)
-                }
+                },
+                onShowSettings: { showingSettings = true }
             )
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView(viewModel: viewModel, dismiss: { showingSettings = false })
         }
     }
 }

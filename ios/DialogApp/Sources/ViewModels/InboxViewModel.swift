@@ -8,10 +8,12 @@ class InboxViewModel: ObservableObject {
     @Published var notes: [Note] = []
     @Published var currentTag: String? = nil
     @Published var allTags: [String] = []
+    @Published var tagCounts: [String: Int] = [:]
     @Published var isLoading = false
     @Published var errorMessage: String?
     
     private let client: DialogClient
+    private(set) var nsecInUse: String = ""
     
     private let userDefaults = UserDefaults.standard
     private let scrollPositionKey = "dialog.scrollPosition"
@@ -23,6 +25,7 @@ class InboxViewModel: ObservableObject {
             fatalError("DIALOG_NSEC not set. Configure in your Xcode Run scheme Environment Variables.")
         }
         self.client = DialogClient(nsec: nsec)
+        self.nsecInUse = nsec
     }
     
     var displayedNotes: [Note] {
@@ -51,13 +54,15 @@ class InboxViewModel: ObservableObject {
         client.start(listener: listener)
         
         // Connect to a relay so create/list/watch work
-        // Hardcode relay for reliability during development
-        client.sendCommand(cmd: Command.connectRelay(relayUrl: "wss://relay.damus.io"))
+        // Use UserDefaults relay if set, else default per plan
+        let relay = UserDefaults.standard.string(forKey: "DIALOG_RELAY") ?? "wss://relay.damus.io"
+        client.sendCommand(cmd: Command.connectRelay(relayUrl: relay))
         
         // Get initial data (synchronous queries)
         print("[swift] getNotes/getAllTags (sync) before events")
         self.notes = client.getNotes(limit: 100, tag: currentTag)
         self.allTags = client.getAllTags()
+        self.refreshTagCounts()
         print("[swift] initial notes count", self.notes.count)
     }
     
@@ -78,6 +83,7 @@ class InboxViewModel: ObservableObject {
             self.notes = Array(unique.values)
             // Always compute tags across ALL cached notes, not filtered view
             self.allTags = client.getAllTags()
+            self.refreshTagCounts()
             self.isLoading = false
             
         case .noteAdded(let note):
@@ -89,6 +95,7 @@ class InboxViewModel: ObservableObject {
             self.notes.sort { $0.createdAt < $1.createdAt }
             // Refresh full tag list from client cache
             self.allTags = client.getAllTags()
+            self.refreshTagCounts()
             
         case .noteUpdated(let note):
             if let index = notes.firstIndex(where: { $0.id == note.id }) {
@@ -96,9 +103,11 @@ class InboxViewModel: ObservableObject {
             }
             // Refresh full tag list from client cache
             self.allTags = client.getAllTags()
+            self.refreshTagCounts()
             
         case .noteDeleted(let id):
             notes.removeAll { $0.id == id }
+            self.refreshTagCounts()
             
         case .tagFilterChanged(let tag):
             self.currentTag = tag
@@ -160,6 +169,32 @@ class InboxViewModel: ObservableObject {
     
     var unreadCount: Int {
         Int(client.getUnreadCount(tag: currentTag))
+    }
+    
+    func refreshTagCounts() {
+        var map: [String: Int] = [:]
+        for tc in client.getTagCounts() {
+            map[tc.tag] = Int(tc.count)
+        }
+        self.tagCounts = map
+    }
+    
+    // Settings helpers
+    func connectRelay(_ url: String) {
+        UserDefaults.standard.set(url, forKey: "DIALOG_RELAY")
+        client.sendCommand(cmd: Command.connectRelay(relayUrl: url))
+    }
+    
+    func clearData() {
+        client.clearDataForCurrentPubkey()
+    }
+    
+    func validate(nsec: String) -> Bool {
+        client.validateNsec(nsec: nsec)
+    }
+    
+    func deriveNpub(from nsec: String) -> String {
+        client.deriveNpub(nsec: nsec)
     }
     
     func saveScrollPosition(for noteId: String?) {
