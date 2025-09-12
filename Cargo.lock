@@ -655,18 +655,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a2330da5de22e8a3cb63252ce2abb30116bf5265e89c0e01bc17015ce30a476"
 
 [[package]]
-name = "dialog_cli"
+name = "dialog_final_v2_cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "dialog_lib",
+ "dialog_final_v2_lib",
  "nostr-sdk",
  "thiserror 2.0.16",
  "tokio",
 ]
 
 [[package]]
-name = "dialog_lib"
+name = "dialog_final_v2_lib"
 version = "0.1.0"
 dependencies = [
  "directories",
@@ -685,7 +685,7 @@ version = "0.1.0"
 dependencies = [
  "camino",
  "chrono",
- "dialog_lib",
+ "dialog_final_v2_lib",
  "nostr-sdk",
  "once_cell",
  "serde_json",
