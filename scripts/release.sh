@@ -6,7 +6,13 @@ if [[ $# -ne 1 ]]; then
   exit 1
 fi
 
-VERSION="$1"
+# Accept either "0.1.1" or "VERSION=0.1.1"
+RAW_ARG="$1"
+if [[ "$RAW_ARG" == VERSION=* ]]; then
+  VERSION="${RAW_ARG#VERSION=}"
+else
+  VERSION="$RAW_ARG"
+fi
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
 
 cd "$ROOT_DIR"
@@ -31,15 +37,15 @@ sed_inplace() {
 # 1) Bump library package version (dialog_final_v2_lib)
 LIB_TOML="dialog_lib/Cargo.toml"
 if [[ -f "$LIB_TOML" ]]; then
-  sed_inplace "$LIB_TOML" '^(version\s*=\s*").*(")$' "\\1$VERSION\\2"
+  sed_inplace "$LIB_TOML" '^(version\s*=\s*")([^"]+)(")$' "\\1$VERSION\\3"
 fi
 
 # 2) Bump CLI package version (dialog_final_v2_cli)
 CLI_TOML="dialog_cli/Cargo.toml"
 if [[ -f "$CLI_TOML" ]]; then
-  sed_inplace "$CLI_TOML" '^(version\s*=\s*").*(")$' "\\1$VERSION\\2"
+  sed_inplace "$CLI_TOML" '^(version\s*=\s*")([^"]+)(")$' "\\1$VERSION\\3"
   # Also update dependency on the lib with new version
-  sed_inplace "$CLI_TOML" '^(dialog_lib\s*=\s*\{[^}]*version\s*=\s*").*("[^}]*\})$' "\\1$VERSION\\2"
+  sed_inplace "$CLI_TOML" '^(dialog_lib\s*=\s*\{[^}]*version\s*=\s*")([^"]+)("[^}]*\})$' "\\1$VERSION\\3"
 fi
 
 echo "Running cargo check..."
@@ -67,4 +73,3 @@ Next steps:
 Or run: just publish
 
 EOF
-

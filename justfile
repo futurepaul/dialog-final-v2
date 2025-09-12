@@ -74,9 +74,10 @@ check:
     cargo clippy
 
 # Release: bump versions, tag, and optionally publish
-# Usage: just release VERSION=0.1.1
-release VERSION:
-    bash scripts/release.sh {{VERSION}}
+# Usage (preferred): just release 0.1.1
+# Also accepted:      just release VERSION=0.1.1
+release version:
+    bash scripts/release.sh {{version}}
 
 # Publish to crates.io (requires `cargo login`)
 publish:
