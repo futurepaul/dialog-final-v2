@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 import Dialog
+import Darwin
 
 // ViewModel using fire-and-forget pattern
 @MainActor
@@ -20,6 +21,8 @@ class InboxViewModel: ObservableObject {
     private let scrollPositionKey = "dialog.scrollPosition"
     
     init() {
+        // Ensure data dir is writable on iOS; point DIALOG_DATA_DIR to Application Support
+        Self.configureDataDirEnv()
         // Read nsec from environment for development (set in Xcode scheme)
         let env = ProcessInfo.processInfo.environment
         if let data = KeychainService.read(key: "nsec"), let key = String(data: data, encoding: .utf8), !key.isEmpty {
@@ -39,6 +42,18 @@ class InboxViewModel: ObservableObject {
         }
         // Derive npub once, driven by current nsec
         self.npub = client.deriveNpub(nsec: self.nsecInUse)
+    }
+
+    private static func configureDataDirEnv() {
+        let fm = FileManager.default
+        if let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            let dir = base.appendingPathComponent("dialog-data", isDirectory: true)
+            do { try fm.createDirectory(at: dir, withIntermediateDirectories: true) } catch {
+                print("[swift] could not create data dir: \(error)")
+            }
+            setenv("DIALOG_DATA_DIR", dir.path, 1)
+            print("[swift] DIALOG_DATA_DIR=\(dir.path)")
+        }
     }
     
     var displayedNotes: [Note] {
