@@ -8,7 +8,7 @@ crate-type = ["rlib", "staticlib", "cdylib"]
 name = "dialog_uniffi"
 
 [dependencies]
-dialog_lib = { path = "../dialog_lib" }
+dialog_lib = { package = "dialog_final_v2_lib", path = "../dialog_lib" }
 nostr-sdk = { workspace = true }
 uniffi = { workspace = true }
 uniffi_bindgen = { workspace = true, optional = true }
