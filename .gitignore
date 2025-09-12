@@ -26,3 +26,5 @@ ios/DialogPackage/Sources/Dialog/*.swift
 ios/DialogPackage/Sources/Dialog/*.h
 ios/DialogPackage/Sources/Dialog/*.modulemap
 ios/DialogPackage/.xcframework-version
+
+test_env/
