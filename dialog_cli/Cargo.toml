@@ -2,9 +2,18 @@
 name = "dialog_cli"
 version = "0.1.0"
 edition = "2024"
+description = "Dialog CLI — privacy-first notes on Nostr"
+repository = "https://github.com/<your-org-or-user>/dialog-final-v2"
+readme = "README.md"
+keywords = ["nostr", "notes", "cli"]
+categories = ["command-line-utilities"]
+
+[[bin]]
+name = "dialog"
+path = "src/main.rs"
 
 [dependencies]
-dialog_lib = { path = "../dialog_lib" }
+dialog_lib = { path = "../dialog_lib", version = "0.1.0" }
 nostr-sdk = { workspace = true }
 clap = { version = "4", features = ["derive"] }
 tokio = { workspace = true }
