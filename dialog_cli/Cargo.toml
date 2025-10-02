@@ -1,5 +1,5 @@
 [package]
-name = "dialog_final_v2_cli"
+name = "dialog_cli"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
