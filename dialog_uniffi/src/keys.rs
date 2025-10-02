@@ -1,9 +1,11 @@
-use nostr_sdk::{prelude::Keys, ToBech32};
+use nostr_sdk::{ToBech32, prelude::Keys};
 
 pub struct KeysHelper;
 
 impl KeysHelper {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 
     pub fn generate_nsec(&self) -> String {
         let keys = Keys::generate();
@@ -23,5 +25,7 @@ impl KeysHelper {
 }
 
 impl Default for KeysHelper {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }

@@ -1,12 +1,15 @@
+use nostr_ndb::NdbDatabase;
 use nostr_sdk::prelude::*;
+use nostrdb::Config as NdbConfig;
 use std::path::PathBuf;
 use thiserror::Error;
 
 pub mod note;
 pub mod query;
-pub mod watch;
+pub mod sync;
 
 pub use note::Note;
+pub use sync::{CatchupMethod, CatchupOutcome, ChangeEvent, RelayStatus};
 
 #[derive(Error, Debug)]
 pub enum DialogError {
@@ -39,8 +42,55 @@ impl Dialog {
 
         // Use pubkey in path for isolation
         let db_path = get_data_dir(&keys.public_key().to_hex())?;
-        let database = NdbDatabase::open(db_path.to_string_lossy())
-            .map_err(|e| DialogError::Database(e.to_string()))?;
+        // Open LMDB with a conservative mapsize on iOS to avoid ENOMEM
+        let database = {
+            // Helper that tries a mapsize and returns Result<NdbDatabase>
+            fn try_open(path: &str, mapsize: Option<u64>) -> Result<NdbDatabase> {
+                let mut cfg = NdbConfig::new();
+                if let Some(ms) = mapsize {
+                    cfg.config.mapsize = ms as usize;
+                }
+                let ndb = nostrdb::Ndb::new(path, &cfg)
+                    .map_err(|e| DialogError::Database(e.to_string()))?;
+                Ok(NdbDatabase::from(ndb))
+            }
+
+            let path_str = db_path.to_string_lossy();
+            // Env override wins (bytes)
+            if let Ok(ms) = std::env::var("DIALOG_NDB_MAPSIZE") {
+                if let Ok(parsed) = ms.parse::<u64>() {
+                    eprintln!("[lib] Opening NDB with mapsize={parsed} bytes (env)");
+                    try_open(&path_str, Some(parsed))?
+                } else {
+                    eprintln!("[lib] DIALOG_NDB_MAPSIZE invalid: {ms}");
+                    try_open(&path_str, None)?
+                }
+            } else if cfg!(target_os = "ios") {
+                // On device, progressively try smaller mapsizes
+                let candidates = [64_u64, 32, 16, 8]; // MB
+                let mut last_err: Option<DialogError> = None;
+                let mut opened: Option<NdbDatabase> = None;
+                for mb in candidates {
+                    let ms = mb * 1024 * 1024;
+                    eprintln!("[lib] Trying NDB mapsize={mb}MB on iOS");
+                    match try_open(&path_str, Some(ms)) {
+                        Ok(db) => {
+                            opened = Some(db);
+                            break;
+                        }
+                        Err(e) => {
+                            last_err = Some(e);
+                        }
+                    }
+                }
+                opened.ok_or_else(|| {
+                    last_err.unwrap_or_else(|| DialogError::Database("Open failed".into()))
+                })?
+            } else {
+                // Defaults on other platforms
+                try_open(&path_str, None)?
+            }
+        };
 
         let client = Client::builder()
             .signer(keys.clone())

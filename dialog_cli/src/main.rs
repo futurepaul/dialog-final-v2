@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
-use dialog_lib::Dialog;
+use dialog_lib::{CatchupMethod, ChangeEvent, Dialog, RelayStatus};
 use nostr_sdk::prelude::*;
+use std::collections::HashSet;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -146,31 +147,45 @@ async fn main() -> Result<()> {
         }
 
         Commands::List { limit, tag, watch } => {
-            // Try to sync with relay (Negentropy or plain fallback) so we see external changes
-            if let Err(e) = dialog.sync_notes().await {
-                eprintln!("Sync via Negentropy failed: {e}. Falling back to plain fetch...");
-                let _ = dialog.sync_notes_plain(None).await.map_err(|e2| {
-                    eprintln!("Plain fetch failed: {e2}");
-                    e2
-                });
+            let tag = tag.map(|t| t.to_lowercase());
+            match dialog.initial_catchup().await {
+                Ok(outcome) => match outcome.method {
+                    CatchupMethod::Negentropy => {
+                        eprintln!("[sync] initial catch-up via Negentropy");
+                    }
+                    CatchupMethod::PlainFetch => {
+                        eprintln!(
+                            "[sync] initial catch-up via plain fetch; relay may not support Negentropy"
+                        );
+                    }
+                },
+                Err(err) => {
+                    eprintln!(
+                        "[sync] initial catch-up failed ({err}); continuing with local cache only"
+                    );
+                }
             }
+
             if watch {
                 // Watch mode - show existing notes first, then subscribe to new ones
                 println!("Entering watch mode. Press Ctrl+C to exit.\n");
 
                 // First, show existing notes
-                let existing_notes = if let Some(ref tag) = tag {
-                    println!("=== Existing notes with tag: #{tag} ===");
-                    dialog.list_by_tag(tag, limit).await?
+                let existing_notes = if let Some(ref tag_value) = tag {
+                    println!("=== Existing notes with tag: #{tag_value} ===");
+                    dialog.list_by_tag(tag_value, limit).await?
                 } else {
                     println!("=== Recent notes ===");
                     dialog.list_notes(limit).await?
                 };
 
+                let mut seen_ids: HashSet<String> = HashSet::new();
+
                 if existing_notes.is_empty() {
                     println!("No existing notes found.");
                 } else {
                     for note in &existing_notes {
+                        seen_ids.insert(note.id.to_hex());
                         println!("\n[{}]", note.created_at.to_human_datetime());
                         println!("{}", note.text);
                         if !note.tags.is_empty() {
@@ -182,21 +197,47 @@ async fn main() -> Result<()> {
 
                 // Now watch for notes using subscribe - runs forever
                 println!("\nWatching for new notes...");
-                let mut receiver = dialog.watch_notes().await?;
+                let mut receiver = dialog.watch_changes().await?;
 
-                // Handle incoming notes
-                while let Some(note) = receiver.recv().await {
-                    println!("\n🆕 [{}]", note.created_at.to_human_datetime());
-                    println!("{}", note.text);
-                    if !note.tags.is_empty() {
-                        println!("Tags: #{}", note.tags.join(" #"));
+                // Handle incoming change notifications
+                while let Some(change) = receiver.recv().await {
+                    match change {
+                        ChangeEvent::NoteApplied { event_id } => {
+                            let id_hex = event_id.to_hex();
+                            if seen_ids.contains(&id_hex) {
+                                continue;
+                            }
+
+                            if let Some(note) = dialog.get_note(&event_id).await? {
+                                if let Some(ref tag_value) = tag {
+                                    if !note.tags.iter().any(|t| t == tag_value) {
+                                        continue;
+                                    }
+                                }
+
+                                println!("\n🆕 [{}]", note.created_at.to_human_datetime());
+                                println!("{}", note.text);
+                                if !note.tags.is_empty() {
+                                    println!("Tags: #{}", note.tags.join(" #"));
+                                }
+                                seen_ids.insert(id_hex);
+                            }
+                        }
+                        ChangeEvent::RelayStatus { status } => match status {
+                            RelayStatus::Subscribed => {
+                                eprintln!("[watch] relay subscription active");
+                            }
+                            RelayStatus::Disconnected => {
+                                eprintln!("[watch] relay disconnected; retrying subscription...");
+                            }
+                        },
                     }
                 }
             } else {
                 // Regular list mode
-                let notes = if let Some(tag) = tag {
-                    println!("Listing notes with tag: #{tag}");
-                    dialog.list_by_tag(&tag, limit).await?
+                let notes = if let Some(ref tag_value) = tag {
+                    println!("Listing notes with tag: #{tag_value}");
+                    dialog.list_by_tag(tag_value, limit).await?
                 } else {
                     dialog.list_notes(limit).await?
                 };

@@ -1,4 +1,4 @@
-use crate::{Dialog, Result};
+use crate::{Dialog, DialogError, Result};
 use nostr_sdk::prelude::*;
 
 #[derive(Debug, Clone)]
@@ -37,10 +37,31 @@ impl Dialog {
         // Add p tag pointing to self (for self-DM)
         builder = builder.tag(Tag::public_key(self.keys.public_key()));
 
-        // Send the event (this also saves to local db)
-        let output = self.client.send_event_builder(builder).await?;
-        eprintln!("[lib] create_note: sent; id={}", output.id());
-        Ok(*output.id())
+        // Sign once so we can persist locally even if publish fails
+        let event = builder.sign(&self.keys).await?;
+
+        // Persist to local database first so callers can immediately read it
+        match self.client.database().save_event(&event).await {
+            Ok(_) => {}
+            Err(err) => {
+                let msg = err.to_string();
+                if !msg.contains("MDB_KEYEXIST") {
+                    return Err(DialogError::Database(msg));
+                }
+            }
+        }
+
+        // Attempt to publish; treat relay errors as warnings so offline usage still works
+        if let Err(err) = self.client.send_event(event.clone()).await {
+            eprintln!(
+                "[lib] create_note: event {} saved locally but publish failed: {err}",
+                event.id
+            );
+        } else {
+            eprintln!("[lib] create_note: published; id={}", event.id);
+        }
+
+        Ok(event.id)
     }
 
     pub(crate) fn decrypt_event(&self, event: &Event) -> Result<String> {

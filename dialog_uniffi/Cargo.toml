@@ -29,6 +29,9 @@ bindgen-support = ["uniffi_bindgen", "camino"]
 [build-dependencies]
 uniffi_build = { workspace = true }
 
+[dev-dependencies]
+portpicker = "0.1"
+
 [profile.release]
 opt-level = "z"
 lto = true

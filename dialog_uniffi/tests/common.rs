@@ -1,24 +1,24 @@
 use dialog_lib::clean_test_storage;
 use nostr_sdk::prelude::*;
+use portpicker::pick_unused_port;
 use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::time::Duration;
 
-pub const TEST_RELAY_URL: &str = "ws://localhost:10548";
-
 pub struct TestServer {
     process: Child,
     pubkey: String,
+    relay_url: String,
 }
 
 impl TestServer {
     pub fn new() -> Self {
-        // Kill any existing nak servers on our port
-        let _ = Command::new("pkill")
-            .args(["-f", "nak.*serve.*10548"])
-            .output();
+        let port = pick_unused_port().expect("failed to allocate unused port");
+        let relay_url = format!("ws://127.0.0.1:{port}");
 
-        // Clean any prior test storage for the test pubkey
+        let pattern = format!("nak.*serve.*{port}");
+        let _ = Command::new("pkill").args(["-f", &pattern]).output();
+
         let test_nsec = std::env::var("DIALOG_NSEC_TEST")
             .or_else(|_| std::env::var("DIALOG_NSEC"))
             .expect("Set DIALOG_NSEC_TEST or DIALOG_NSEC in CI/environment");
@@ -26,7 +26,6 @@ impl TestServer {
         let pubkey = keys.public_key().to_hex();
         let _ = clean_test_storage(&pubkey);
 
-        // Start patched nak from repo root (../nak-negentropy relative to this crate)
         let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .unwrap()
@@ -38,19 +37,26 @@ impl TestServer {
             nak_path.display()
         );
         println!(
-            "Starting nak server with negentropy on port 10548 using {} ...",
+            "Starting nak server with negentropy on port {port} using {} ...",
             nak_path.display()
         );
         let process = Command::new(nak_path)
-            .args(["serve", "--port", "10548"])
+            .args(["serve", "--port", &port.to_string()])
             .spawn()
             .expect("Failed to start nak server. Build it via ./setup_nak_local.sh");
 
-        // Give server time to start
         std::thread::sleep(Duration::from_secs(2));
         println!("Nak server with negentropy should be ready");
 
-        Self { process, pubkey }
+        Self {
+            process,
+            pubkey,
+            relay_url,
+        }
+    }
+
+    pub fn relay_url(&self) -> &str {
+        &self.relay_url
     }
 }
 
@@ -64,7 +70,6 @@ impl Drop for TestServer {
     fn drop(&mut self) {
         let _ = self.process.kill();
         let _ = self.process.wait();
-        // Clean test storage for pubkey
         let _ = clean_test_storage(&self.pubkey);
     }
 }

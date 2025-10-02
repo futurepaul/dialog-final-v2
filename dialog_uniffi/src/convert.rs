@@ -1,4 +1,4 @@
-use crate::{Note};
+use crate::Note;
 use dialog_lib::Note as LibNote;
 
 pub(crate) fn convert_lib_note_to_uniffi(lib_note: LibNote) -> Note {
@@ -11,4 +11,3 @@ pub(crate) fn convert_lib_note_to_uniffi(lib_note: LibNote) -> Note {
         is_synced: lib_note.is_synced,
     }
 }
-

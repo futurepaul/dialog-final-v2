@@ -1,4 +1,9 @@
-use crate::{convert::convert_lib_note_to_uniffi, runtime::{rt, DIALOG}, DialogClient, Event};
+use crate::{
+    DialogClient, Event,
+    convert::convert_lib_note_to_uniffi,
+    runtime::{DIALOG, rt},
+};
+use dialog_lib::{ChangeEvent, RelayStatus};
 use std::sync::Arc;
 
 impl DialogClient {
@@ -6,29 +11,71 @@ impl DialogClient {
         if self.watch_handle.read().await.is_some() {
             return;
         }
-        match DIALOG.get().unwrap().watch_notes().await {
+
+        match DIALOG.get().unwrap().watch_changes().await {
             Ok(mut receiver) => {
-                eprintln!("[uniffi] watch_notes receiver acquired; entering loop");
+                eprintln!("[uniffi] watch_changes receiver acquired; entering loop");
                 let this = self.clone();
                 let handle = rt().spawn(async move {
-                    while let Some(lib_note) = receiver.recv().await {
-                        let note = convert_lib_note_to_uniffi(lib_note);
-                        let mut notes_guard = this.notes.write().await;
-                        if notes_guard.contains_key(&note.id) {
-                            notes_guard.insert(note.id.clone(), note.clone());
-                            let _ = this.event_tx.send(Event::NoteUpdated { note });
-                        } else {
-                            notes_guard.insert(note.id.clone(), note.clone());
-                            let _ = this.event_tx.send(Event::NoteAdded { note });
+                    while let Some(change) = receiver.recv().await {
+                        match change {
+                            ChangeEvent::NoteApplied { event_id } => {
+                                let id_hex = event_id.to_hex();
+                                {
+                                    let mut delivered = this.delivered_ids.write().await;
+                                    if !delivered.insert(id_hex.clone()) {
+                                        continue;
+                                    }
+                                }
+
+                                match DIALOG
+                                    .get()
+                                    .unwrap()
+                                    .get_note(&event_id)
+                                    .await
+                                {
+                                    Ok(Some(lib_note)) => {
+                                        let note = convert_lib_note_to_uniffi(lib_note);
+                                        let _ = this.event_tx.send(Event::NoteAdded { note });
+                                    }
+                                    Ok(None) => {
+                                        eprintln!(
+                                            "[uniffi] watch_changes: received note id {id_hex} but not found in DB"
+                                        );
+                                    }
+                                    Err(err) => {
+                                        eprintln!(
+                                            "[uniffi] watch_changes: failed to load note {id_hex}: {err}"
+                                        );
+                                    }
+                                }
+                            }
+                            ChangeEvent::RelayStatus { status } => match status {
+                                RelayStatus::Subscribed => {
+                                    eprintln!(
+                                        "[uniffi] watch_changes: relay subscription confirmed"
+                                    );
+                                    let _ = this
+                                        .event_tx
+                                        .send(Event::SyncStatusChanged { syncing: false });
+                                }
+                                RelayStatus::Disconnected => {
+                                    eprintln!(
+                                        "[uniffi] watch_changes: relay disconnected; waiting to resubscribe"
+                                    );
+                                    let _ = this
+                                        .event_tx
+                                        .send(Event::SyncStatusChanged { syncing: true });
+                                }
+                            },
                         }
                     }
                 });
                 *self.watch_handle.write().await = Some(handle);
             }
             Err(e) => {
-                eprintln!("[uniffi] watch_notes() failed to start: {e}");
+                eprintln!("[uniffi] watch_changes() failed to start: {e}");
             }
         }
     }
 }
-

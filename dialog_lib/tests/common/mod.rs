@@ -1,22 +1,25 @@
 use dialog_lib::{clean_test_storage, Dialog};
 use nostr_sdk::prelude::*;
+use portpicker::pick_unused_port;
 use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::time::Duration;
 
-pub const TEST_RELAY_URL: &str = "ws://localhost:10548";
-
 pub struct TestServer {
     process: Child,
     pubkey: String,
+    relay_url: String,
 }
 
 impl TestServer {
     pub async fn new() -> Self {
-        // Kill any existing nak servers on our port
-        let _ = Command::new("pkill")
-            .args(["-f", "nak.*serve.*10548"])
-            .output();
+        // Allocate a dedicated relay port to avoid conflicts with developer instances
+        let port = pick_unused_port().expect("Failed to allocate an unused port");
+        let relay_url = format!("ws://127.0.0.1:{port}");
+
+        // Kill any lingering nak servers on our allocated port
+        let port_pattern = format!("nak.*serve.*{port}");
+        let _ = Command::new("pkill").args(["-f", &port_pattern]).output();
 
         // Parse keys to get pubkey for cleanup
         let test_nsec = std::env::var("DIALOG_NSEC_TEST")
@@ -42,11 +45,12 @@ impl TestServer {
         );
 
         println!(
-            "Starting nak server with negentropy on port 10548 using {}...",
+            "Starting nak server with negentropy on port {port} using {}...",
             nak_path.display()
         );
+        let port_str = port.to_string();
         let process = Command::new(nak_path)
-            .args(["serve", "--port", "10548"])
+            .args(["serve", "--port", &port_str])
             .spawn()
             .expect("Failed to start nak server");
 
@@ -54,16 +58,24 @@ impl TestServer {
         tokio::time::sleep(Duration::from_secs(2)).await;
         println!("Nak server with negentropy should be ready");
 
-        Self { process, pubkey }
+        Self {
+            process,
+            pubkey,
+            relay_url,
+        }
     }
 
     pub async fn create_dialog(&self) -> Dialog {
         let test_nsec = std::env::var("DIALOG_NSEC_TEST")
             .or_else(|_| std::env::var("DIALOG_NSEC"))
             .expect("Set DIALOG_NSEC_TEST or DIALOG_NSEC in CI/environment");
-        Dialog::new_with_relay(&test_nsec, TEST_RELAY_URL)
+        Dialog::new_with_relay(&test_nsec, &self.relay_url)
             .await
             .expect("Failed to create Dialog")
+    }
+
+    pub fn clear_storage(&self) {
+        let _ = clean_test_storage(&self.pubkey);
     }
 }
 

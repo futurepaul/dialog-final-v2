@@ -1,6 +1,6 @@
 mod common;
 
-use common::{TEST_RELAY_URL, TestServer};
+use common::TestServer;
 use dialog_uniffi::{Command, DialogClient, DialogListener, Event};
 use std::sync::{Arc, mpsc};
 use std::time::Duration;
@@ -18,7 +18,7 @@ impl DialogListener for TestListener {
 #[test]
 fn uniffi_end_to_end_note_flow() {
     // Start fresh relay
-    let _server = TestServer::new();
+    let server = TestServer::new();
 
     // Create client
     let test_nsec = std::env::var("DIALOG_NSEC_TEST")
@@ -34,7 +34,7 @@ fn uniffi_end_to_end_note_flow() {
 
     // Connect relay
     client.clone().send_command(Command::ConnectRelay {
-        relay_url: TEST_RELAY_URL.to_string(),
+        relay_url: server.relay_url().to_string(),
     });
 
     // Wait for initial ready/notes

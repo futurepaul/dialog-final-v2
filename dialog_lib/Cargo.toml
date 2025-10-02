@@ -20,9 +20,13 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 directories = { workspace = true }
 keyring = { version = "3", optional = true }
+"nostr-ndb" = "0.37"
+nostrdb = "0.3.4"
 
 [features]
 default = ["keyring"]
 
 [dev-dependencies]
 tokio-test = "0.4"
+portpicker = "0.1"
+serial_test = "3"

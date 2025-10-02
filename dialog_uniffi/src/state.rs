@@ -1,19 +1,31 @@
-use crate::{convert::convert_lib_note_to_uniffi, runtime::{rt, DIALOG}, Event, Note, SyncMode, TagCount};
+use crate::{
+    Event, Note, SyncMode, TagCount,
+    convert::convert_lib_note_to_uniffi,
+    runtime::{DIALOG, rt},
+};
 use dialog_lib::Dialog;
-use std::{collections::{HashMap, HashSet}, sync::Arc};
+use nostr_sdk::prelude::EventId;
+use std::{collections::HashSet, sync::Arc};
 use tokio::sync::{RwLock, broadcast};
 
+fn framework_version() -> &'static str {
+    option_env!("UNIFFI_FRAMEWORK_VERSION").unwrap_or("unknown")
+}
+
 pub struct DialogClient {
-    pub(crate) notes: Arc<RwLock<HashMap<String, Note>>>,
     pub(crate) current_filter: Arc<RwLock<Option<String>>>,
     pub(crate) event_tx: broadcast::Sender<Event>,
     pub(crate) watch_handle: Arc<RwLock<Option<tokio::task::JoinHandle<()>>>>,
     pub(crate) sync_mode: Arc<RwLock<SyncMode>>, // Default from env or Negentropy
+    pub(crate) delivered_ids: Arc<RwLock<HashSet<String>>>,
 }
 
 impl DialogClient {
     pub fn new(nsec: String) -> Self {
-        eprintln!("[uniffi] DialogClient::new - initializing with nsec len={} chars", nsec.len());
+        eprintln!(
+            "[uniffi] DialogClient::new - initializing with nsec len={} chars",
+            nsec.len()
+        );
         // Initialize Dialog once
         let dialog: Dialog = rt().block_on(async {
             match Dialog::new(&nsec).await {
@@ -35,31 +47,23 @@ impl DialogClient {
             _ => SyncMode::Negentropy,
         };
         let client = Self {
-            notes: Arc::new(RwLock::new(HashMap::new())),
             current_filter: Arc::new(RwLock::new(None)),
             event_tx,
             watch_handle: Arc::new(RwLock::new(None)),
             sync_mode: Arc::new(RwLock::new(sync_mode)),
+            delivered_ids: Arc::new(RwLock::new(HashSet::new())),
         };
 
-        // Load initial notes from dialog_lib
-        eprintln!("[uniffi] Loading initial notes...");
-        let notes_clone = client.notes.clone();
+        eprintln!(
+            "[uniffi] DialogClient::new - XCFramework version {}",
+            framework_version()
+        );
+
+        // Emit ready event asynchronously so Swift knows the bridge is live
         let event_tx_clone = client.event_tx.clone();
         rt().spawn(async move {
-            if let Ok(lib_notes) = DIALOG.get().unwrap().list_notes(100).await {
-                eprintln!("[uniffi] Initial notes loaded: {}", lib_notes.len());
-                let mut notes = notes_clone.write().await;
-                for lib_note in lib_notes {
-                    let note = convert_lib_note_to_uniffi(lib_note);
-                    notes.insert(note.id.clone(), note.clone());
-                }
-                // Send ready event
-                eprintln!("[uniffi] Sending Event::Ready");
-                let _ = event_tx_clone.send(Event::Ready);
-            } else {
-                eprintln!("[uniffi] Failed to load initial notes");
-            }
+            eprintln!("[uniffi] Sending Event::Ready");
+            let _ = event_tx_clone.send(Event::Ready);
         });
 
         client
@@ -90,35 +94,32 @@ impl DialogClient {
 
         // Send initial data
         let notes = self.get_notes(100, None);
-        eprintln!("[uniffi] Emitting initial Event::NotesLoaded count={}", notes.len());
+        let delivered_ids = self.delivered_ids.clone();
+        let ids_to_record: Vec<String> = notes.iter().map(|n| n.id.clone()).collect();
+        rt().block_on(async move {
+            let mut guard = delivered_ids.write().await;
+            for id in ids_to_record {
+                guard.insert(id);
+            }
+        });
+        eprintln!(
+            "[uniffi] Emitting initial Event::NotesLoaded count={}",
+            notes.len()
+        );
         listener.on_event(Event::NotesLoaded { notes });
     }
 
     // Fast synchronous queries
     pub fn get_notes(&self, limit: u32, tag: Option<String>) -> Vec<Note> {
-        let notes = match self.notes.try_read() {
-            Ok(guard) => guard,
-            Err(_) => return Vec::new(),
-        };
-        let mut result: Vec<Note> = notes
-            .values()
-            .filter(|n| tag.as_ref().is_none_or(|t| n.tags.contains(t)))
-            .cloned()
-            .collect();
-
-        result.sort_by(|a, b| a.created_at.cmp(&b.created_at));
-        result.into_iter().take(limit as usize).collect()
+        rt().block_on(Self::fetch_notes(limit, tag))
     }
 
     pub fn get_all_tags(&self) -> Vec<String> {
-        let notes = match self.notes.try_read() {
-            Ok(guard) => guard,
-            Err(_) => return Vec::new(),
-        };
+        let notes = self.get_notes(1_000, None);
         let mut tags = HashSet::new();
-        for note in notes.values() {
-            for tag in &note.tags {
-                tags.insert(tag.clone());
+        for note in notes {
+            for tag in note.tags {
+                tags.insert(tag);
             }
         }
         let mut result: Vec<String> = tags.into_iter().collect();
@@ -127,30 +128,21 @@ impl DialogClient {
     }
 
     pub fn get_note(&self, id: String) -> Option<Note> {
-        self.notes.try_read().ok()?.get(&id).cloned()
+        let event_id = EventId::from_hex(&id).ok()?;
+        rt().block_on(Self::fetch_note(&event_id))
     }
 
     pub fn get_unread_count(&self, tag: Option<String>) -> u32 {
-        let notes = match self.notes.try_read() {
-            Ok(guard) => guard,
-            Err(_) => return 0,
-        };
-        notes
-            .values()
-            .filter(|n| !n.is_read)
-            .filter(|n| tag.as_ref().is_none_or(|t| n.tags.contains(t)))
-            .count() as u32
+        let notes = self.get_notes(1_000, tag);
+        notes.into_iter().filter(|n| !n.is_read).count() as u32
     }
 
     pub fn get_tag_counts(&self) -> Vec<TagCount> {
-        let notes = match self.notes.try_read() {
-            Ok(guard) => guard,
-            Err(_) => return Vec::new(),
-        };
-        let mut counts: HashMap<String, u32> = HashMap::new();
-        for note in notes.values() {
-            for tag in &note.tags {
-                *counts.entry(tag.clone()).or_insert(0) += 1;
+        let notes = self.get_notes(1_000, None);
+        let mut counts = std::collections::HashMap::new();
+        for note in notes {
+            for tag in note.tags {
+                *counts.entry(tag).or_insert(0) += 1;
             }
         }
         let mut result: Vec<TagCount> = counts
@@ -172,17 +164,57 @@ impl DialogClient {
     }
 
     // Instance helpers expected by UniFFI UDL
-    pub fn stop(&self) { /* no-op for now */ }
+    pub fn stop(&self) { /* no-op for now */
+    }
 
     pub fn validate_nsec(&self, nsec: String) -> bool {
         dialog_lib::validate_nsec(&nsec).is_ok()
     }
 
     pub fn derive_npub(&self, nsec: String) -> String {
-        use nostr_sdk::{prelude::Keys, ToBech32};
+        use nostr_sdk::{ToBech32, prelude::Keys};
         match Keys::parse(&nsec) {
             Ok(keys) => keys.public_key().to_bech32().unwrap_or_default(),
             Err(_) => String::new(),
+        }
+    }
+}
+
+impl DialogClient {
+    pub(crate) async fn fetch_notes(limit: u32, tag: Option<String>) -> Vec<Note> {
+        let tag_normalized = tag.map(|t| t.to_lowercase());
+        let dialog = match DIALOG.get() {
+            Some(dialog) => dialog,
+            None => {
+                eprintln!("[uniffi] fetch_notes called before dialog initialized");
+                return Vec::new();
+            }
+        };
+
+        let result = if let Some(ref tag_value) = tag_normalized {
+            dialog.list_by_tag(tag_value, limit as usize).await
+        } else {
+            dialog.list_notes(limit as usize).await
+        };
+
+        match result {
+            Ok(notes) => notes.into_iter().map(convert_lib_note_to_uniffi).collect(),
+            Err(err) => {
+                eprintln!("[uniffi] fetch_notes error: {err}");
+                Vec::new()
+            }
+        }
+    }
+
+    pub(crate) async fn fetch_note(event_id: &EventId) -> Option<Note> {
+        let dialog = DIALOG.get()?;
+        match dialog.get_note(event_id).await {
+            Ok(Some(note)) => Some(convert_lib_note_to_uniffi(note)),
+            Ok(None) => None,
+            Err(err) => {
+                eprintln!("[uniffi] fetch_note error: {err}");
+                None
+            }
         }
     }
 }

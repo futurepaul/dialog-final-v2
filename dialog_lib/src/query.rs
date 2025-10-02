@@ -118,6 +118,54 @@ impl Dialog {
         }
         Ok(())
     }
+
+    pub async fn get_note(&self, id: &EventId) -> Result<Option<Note>> {
+        let filter = Filter::new()
+            .author(self.keys.public_key())
+            .kind(Kind::from(1059))
+            .ids(vec![*id])
+            .limit(1);
+
+        let events = self
+            .client
+            .database()
+            .query(vec![filter])
+            .await
+            .map_err(|e| DialogError::Database(e.to_string()))?;
+
+        for event in events {
+            if event.id == *id {
+                if let Ok(decrypted) = self.decrypt_event(&event) {
+                    let is_read = self.get_read_status(&event.id).await;
+                    return Ok(Some(Note {
+                        id: event.id,
+                        text: decrypted,
+                        tags: extract_tags(&event),
+                        created_at: event.created_at,
+                        is_read,
+                        is_synced: true,
+                    }));
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
+    pub async fn latest_note_timestamp(&self) -> Result<Option<Timestamp>> {
+        let filter = Filter::new()
+            .author(self.keys.public_key())
+            .kind(Kind::from(1059));
+
+        let events = self
+            .client
+            .database()
+            .query(vec![filter])
+            .await
+            .map_err(|e| DialogError::Database(e.to_string()))?;
+
+        Ok(events.into_iter().map(|event| event.created_at).max())
+    }
 }
 
 fn extract_tags(event: &Event) -> Vec<String> {

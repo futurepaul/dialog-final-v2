@@ -1,6 +1,6 @@
+use dialog_lib::Dialog;
 use once_cell::sync::OnceCell;
 use tokio::runtime::Runtime;
-use dialog_lib::Dialog;
 
 pub(crate) fn rt() -> &'static Runtime {
     static RT: OnceCell<Runtime> = OnceCell::new();
@@ -14,4 +14,3 @@ pub(crate) fn rt() -> &'static Runtime {
 }
 
 pub(crate) static DIALOG: OnceCell<Dialog> = OnceCell::new();
-
