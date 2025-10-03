@@ -1,8 +1,4 @@
-use crate::{
-    DialogClient, Event,
-    convert::convert_lib_note_to_uniffi,
-    runtime::{DIALOG, rt},
-};
+use crate::{DialogClient, Event, runtime::rt};
 use dialog_lib::{ChangeEvent, RelayStatus};
 use std::sync::Arc;
 
@@ -12,7 +8,7 @@ impl DialogClient {
             return;
         }
 
-        match DIALOG.get().unwrap().watch_changes().await {
+        match self.dialog.watch_changes().await {
             Ok(mut receiver) => {
                 eprintln!("[uniffi] watch_changes receiver acquired; entering loop");
                 let this = self.clone();
@@ -28,24 +24,13 @@ impl DialogClient {
                                     }
                                 }
 
-                                match DIALOG
-                                    .get()
-                                    .unwrap()
-                                    .get_note(&event_id)
-                                    .await
-                                {
-                                    Ok(Some(lib_note)) => {
-                                        let note = convert_lib_note_to_uniffi(lib_note);
+                                match this.fetch_note_async(&event_id).await {
+                                    Some(note) => {
                                         let _ = this.event_tx.send(Event::NoteAdded { note });
                                     }
-                                    Ok(None) => {
+                                    None => {
                                         eprintln!(
                                             "[uniffi] watch_changes: received note id {id_hex} but not found in DB"
-                                        );
-                                    }
-                                    Err(err) => {
-                                        eprintln!(
-                                            "[uniffi] watch_changes: failed to load note {id_hex}: {err}"
                                         );
                                     }
                                 }

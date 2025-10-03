@@ -14,8 +14,9 @@ class InboxViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var npub: String = ""
     
-    private let client: DialogClient
+    private var client: DialogClient
     private(set) var nsecInUse: String = ""
+    private var isStarted = false
     
     private let userDefaults = UserDefaults.standard
     private let scrollPositionKey = "dialog.scrollPosition"
@@ -69,6 +70,8 @@ class InboxViewModel: ObservableObject {
     }
     
     func start() {
+        guard !isStarted else { return }
+        isStarted = true
         print("[swift] start() called")
         // Create listener to receive events from Rust
         let listener = SwiftDialogListener { [weak self] event in
@@ -95,6 +98,8 @@ class InboxViewModel: ObservableObject {
     }
     
     func stop() {
+        guard isStarted else { return }
+        isStarted = false
         client.stop()
     }
     
@@ -124,7 +129,7 @@ class InboxViewModel: ObservableObject {
             // Refresh full tag list from client cache
             self.allTags = client.getAllTags()
             self.refreshTagCounts()
-            
+
         case .noteUpdated(let note):
             if let index = notes.firstIndex(where: { $0.id == note.id }) {
                 notes[index] = note
@@ -176,6 +181,12 @@ class InboxViewModel: ObservableObject {
         markAsRead(note.id)
         print("Selected note: \(note.id)")
     }
+
+    func noteAppeared(_ note: Note) {
+        if !note.isRead {
+            markAsRead(note.id)
+        }
+    }
     
     func bubblePosition(for index: Int) -> BubblePosition {
         guard index >= 0 && index < displayedNotes.count else { return .solo }
@@ -224,8 +235,34 @@ class InboxViewModel: ObservableObject {
     func clearData() {
         client.clearDataForCurrentPubkey()
     }
-    
+
     func validate(nsec: String) -> Bool { client.validateNsec(nsec: nsec) }
+
+    func importNsec(_ raw: String) -> Bool {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, validate(nsec: trimmed) else { return false }
+
+        stop()
+        clearData()
+        KeychainService.delete(key: "nsec")
+        _ = KeychainService.save(key: "nsec", data: Data(trimmed.utf8))
+
+        nsecInUse = trimmed
+        client = DialogClient(nsec: trimmed)
+        npub = client.deriveNpub(nsec: trimmed)
+
+        notes = []
+        allTags = []
+        tagCounts = [:]
+        currentTag = nil
+        errorMessage = nil
+        isLoading = false
+
+        start()
+        let relay = UserDefaults.standard.string(forKey: "DIALOG_RELAY") ?? "wss://relay.damus.io"
+        client.sendCommand(cmd: Command.connectRelay(relayUrl: relay))
+        return true
+    }
     
     func saveScrollPosition(for noteId: String?) {
         if let noteId = noteId {

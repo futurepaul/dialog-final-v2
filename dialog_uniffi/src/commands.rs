@@ -1,7 +1,4 @@
-use crate::{
-    Command, DialogClient, Event, SyncMode,
-    runtime::{DIALOG, rt},
-};
+use crate::{Command, DialogClient, Event, SyncMode, runtime::rt};
 use dialog_lib::CatchupMethod;
 use nostr_sdk::prelude::*;
 use std::sync::Arc;
@@ -43,8 +40,7 @@ impl DialogClient {
 
     async fn handle_connect(self: &Arc<Self>, relay_url: String) {
         eprintln!("[uniffi] Connecting to relay: {relay_url}");
-        let dialog = DIALOG.get().unwrap();
-        if let Err(e) = dialog.connect_relay(&relay_url).await {
+        if let Err(e) = self.dialog.connect_relay(&relay_url).await {
             eprintln!("[uniffi] Failed to connect to relay: {e}");
             return;
         }
@@ -52,7 +48,7 @@ impl DialogClient {
         eprintln!("[uniffi] Connected to relay: {relay_url}");
         let mode = self.sync_mode.read().await.clone();
         match mode {
-            SyncMode::Negentropy => match dialog.initial_catchup().await {
+            SyncMode::Negentropy => match self.dialog.initial_catchup().await {
                 Ok(outcome) => match outcome.method {
                     CatchupMethod::Negentropy => {
                         eprintln!("[uniffi] Initial catch-up via Negentropy");
@@ -73,7 +69,7 @@ impl DialogClient {
                 eprintln!(
                     "[uniffi] SyncMode::Subscribe: performing plain fetch catch-up for compatibility"
                 );
-                if let Err(err) = dialog.sync_notes_plain(Some(500)).await {
+                if let Err(err) = self.dialog.sync_notes_plain(Some(500)).await {
                     eprintln!("[uniffi] Plain fetch failed: {err}");
                 }
             }
@@ -85,10 +81,9 @@ impl DialogClient {
 
     pub(crate) async fn create_note(self: Arc<Self>, text: String) {
         eprintln!("[uniffi] CreateNote len={}", text.len());
-        let dialog = DIALOG.get().unwrap();
-        match dialog.create_note(&text).await {
+        match self.dialog.create_note(&text).await {
             Ok(event_id) => {
-                if let Some(note) = Self::fetch_note(&event_id).await {
+                if let Some(note) = self.fetch_note_async(&event_id).await {
                     {
                         let mut delivered = self.delivered_ids.write().await;
                         delivered.insert(note.id.clone());
@@ -113,8 +108,8 @@ impl DialogClient {
 
     pub(crate) async fn mark_as_read(self: Arc<Self>, id: String) {
         if let Ok(event_id) = EventId::from_hex(&id) {
-            if DIALOG.get().unwrap().mark_as_read(&event_id).await.is_ok() {
-                if let Some(note) = Self::fetch_note(&event_id).await {
+            if self.dialog.mark_as_read(&event_id).await.is_ok() {
+                if let Some(note) = self.fetch_note_async(&event_id).await {
                     let _ = self.event_tx.send(Event::NoteUpdated { note });
                 }
             }
@@ -132,7 +127,7 @@ impl DialogClient {
     pub(crate) async fn search_notes(self: Arc<Self>, query: String) {
         eprintln!("[uniffi] SearchNotes query='{query}'");
         let query_lower = query.to_lowercase();
-        let notes = Self::fetch_notes(1_000, None).await;
+        let notes = self.fetch_notes_async(1_000, None).await;
         let results: Vec<crate::Note> = notes
             .into_iter()
             .filter(|n| n.text.to_lowercase().contains(&query_lower))
@@ -142,7 +137,7 @@ impl DialogClient {
 
     async fn refresh_notes(self: &Arc<Self>, limit: u32) {
         let filter = self.current_filter.read().await.clone();
-        let notes = Self::fetch_notes(limit, filter.clone()).await;
+        let notes = self.fetch_notes_async(limit, filter.clone()).await;
         {
             let mut delivered = self.delivered_ids.write().await;
             for note in &notes {

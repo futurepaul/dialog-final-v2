@@ -1,4 +1,3 @@
-use dialog_lib::Dialog;
 use once_cell::sync::OnceCell;
 use tokio::runtime::Runtime;
 
@@ -12,5 +11,3 @@ pub(crate) fn rt() -> &'static Runtime {
             .expect("Failed to create Tokio runtime")
     })
 }
-
-pub(crate) static DIALOG: OnceCell<Dialog> = OnceCell::new();

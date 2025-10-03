@@ -42,12 +42,16 @@ struct InboxView: View {
                                 NoteBubble(
                                     note: note,
                                     position: viewModel.bubblePosition(for: index),
-                                    onTap: { viewModel.selectNote(note) }
+                                    onTap: { viewModel.selectNote(note) },
+                                    onTagTap: { tag in
+                                        viewModel.setTagFilter(tag)
+                                    }
                                 )
                                 .id(note.id)
                                 .onAppear {
                                     // Track the last visible note for scroll position
                                     lastVisibleNoteId = note.id
+                                    viewModel.noteAppeared(note)
                                 }
                             }
                         }

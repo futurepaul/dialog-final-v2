@@ -12,6 +12,10 @@ struct SettingsView: View {
     @State private var showSignOutAlert = false
     @State private var npubCopied = false
     @State private var nsecCopied = false
+    @State private var showingImportSheet = false
+    @State private var importNsec = ""
+    @State private var showImportConfirm = false
+    @State private var importError: String?
 
     var body: some View {
         NavigationStack {
@@ -62,6 +66,13 @@ struct SettingsView: View {
                     } label: {
                         Label(nsecCopied ? "nsec copied" : "Copy nsec", systemImage: nsecCopied ? "checkmark" : "key")
                     }
+                    Button {
+                        importNsec = ""
+                        importError = nil
+                        showingImportSheet = true
+                    } label: {
+                        Label("Import nsec", systemImage: "arrow.triangle.2.circlepath.circle")
+                    }
                 }
 
                 Section {
@@ -70,8 +81,10 @@ struct SettingsView: View {
                     } label: {
                         Label("Sign out (wipe local data)", systemImage: "trash")
                     }
+                } header: {
+                    Text("Danger Zone")
                 } footer: {
-                    Text("Signing out deletes local cache and Keychain entry; you will need to re-enter your nsec. App restart may be required.")
+                    Text("Signing out removes local cache and Keychain entry; you’ll need to re-enter your nsec to continue.")
                 }
             }
             .navigationTitle("Settings")
@@ -87,6 +100,55 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showingQR) {
                 NsecQRSheet(nsec: viewModel.nsecInUse) { showingQR = false }
+            }
+            .sheet(isPresented: $showingImportSheet) {
+                NavigationStack {
+                    Form {
+                        Section(
+                            content: {
+                                TextField("nsec1...", text: $importNsec)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled()
+                                    .font(.system(.footnote, design: .monospaced))
+                            },
+                            footer: {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Importing a new nsec will wipe local data for the current account.")
+                                    Text("Make sure you've backed up the old nsec if you still need those notes.")
+                                    if let error = importError {
+                                        Text(error)
+                                            .foregroundStyle(.red)
+                                    }
+                                }
+                            }
+                        )
+                    }
+                    .navigationTitle("Import nsec")
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("Cancel") { showingImportSheet = false }
+                        }
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Replace", role: .destructive) {
+                                showImportConfirm = true
+                            }
+                            .disabled(!viewModel.validate(nsec: importNsec))
+                        }
+                    }
+                    .alert("Replace current account?", isPresented: $showImportConfirm) {
+                        Button("Replace", role: .destructive) {
+                            if viewModel.importNsec(importNsec) {
+                                showingImportSheet = false
+                                dismiss()
+                            } else {
+                                importError = "Invalid nsec."
+                            }
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text("This will remove local data for the current account and replace it with the imported keys.")
+                    }
+                }
             }
         }
     }
