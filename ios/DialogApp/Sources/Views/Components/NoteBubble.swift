@@ -105,7 +105,7 @@ struct NoteBubble: View {
         } else if !note.isRead {
             return ("checkmark.circle", .gray)
         } else {
-            return ("checkmark.circle.fill", .blue)
+            return ("checkmark.circle.fill", .gray)
         }
     }
 }
