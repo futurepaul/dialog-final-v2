@@ -3,6 +3,7 @@ import SwiftUI
 struct NavigationBar: View {
     @Binding var showingTopicPicker: Bool
     let currentTag: String?
+    let onSearchTapped: () -> Void
     
     @Environment(\.colorScheme) private var colorScheme
     
@@ -20,13 +21,13 @@ struct NavigationBar: View {
             
             Spacer()
             
-            // Right: Search button (future)
-            Button(action: {}) {
+            // Right: Search button
+            Button(action: { onSearchTapped() }) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(colorScheme == .dark ? .white : .black)
             }
-            .disabled(true)
-            .opacity(0.3)
+            .disabled(false)
+            .opacity(1)
         }
         .padding()
         .frame(height: 60)

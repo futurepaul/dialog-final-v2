@@ -12,6 +12,7 @@ struct NoteBubble: View {
     let note: Note
     let position: BubblePosition
     let onTap: () -> Void
+    let onTagTap: (String) -> Void
     
     @Environment(\.colorScheme) private var colorScheme
     
@@ -53,12 +54,22 @@ struct NoteBubble: View {
                 
                 if !note.tags.isEmpty {
                     HStack(spacing: 6) {
-                        ForEach(note.displayTags, id: \.self) { tag in
-                            Text(tag)
-                                .font(.caption)
-                                .foregroundStyle(.blue)
+                        ForEach(note.tags, id: \.self) { tag in
+                            Button {
+                                onTagTap(tag)
+                            } label: {
+                                Text("#\(tag)")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.borderless)
+                            .tint(.blue)
                         }
                     }
+                }
+
+                HStack(spacing: 4) {
+                    Spacer()
+                    statusView
                 }
             }
             .padding(12)
@@ -79,6 +90,24 @@ struct NoteBubble: View {
         .onTapGesture(perform: onTap)
         .animation(.snappy(duration: 0.2), value: position)
     }
+
+    @ViewBuilder
+    private var statusView: some View {
+        Image(systemName: statusConfig.imageName)
+            .font(.caption2)
+            .foregroundStyle(statusConfig.color)
+            .transition(.scale.combined(with: .opacity))
+    }
+
+    private var statusConfig: (imageName: String, color: Color) {
+        if !note.isSynced {
+            return ("circle", .gray)
+        } else if !note.isRead {
+            return ("checkmark.circle", .gray)
+        } else {
+            return ("checkmark.circle.fill", .gray)
+        }
+    }
 }
 
 #Preview("Solo Message") {
@@ -92,7 +121,8 @@ struct NoteBubble: View {
             isSynced: false
         ),
         position: .solo,
-        onTap: {}
+        onTap: {},
+        onTagTap: { _ in }
     )
 }
 
@@ -108,7 +138,8 @@ struct NoteBubble: View {
                 isSynced: true
             ),
             position: .top,
-            onTap: {}
+            onTap: {},
+            onTagTap: { _ in }
         )
         NoteBubble(
             note: Note(
@@ -120,7 +151,8 @@ struct NoteBubble: View {
                 isSynced: true
             ),
             position: .middle,
-            onTap: {}
+            onTap: {},
+            onTagTap: { _ in }
         )
         NoteBubble(
             note: Note(
@@ -132,7 +164,8 @@ struct NoteBubble: View {
                 isSynced: false
             ),
             position: .bottom,
-            onTap: {}
+            onTap: {},
+            onTagTap: { _ in }
         )
     }
 }

@@ -1,7 +1,16 @@
 [package]
-name = "dialog_lib"
+name = "dialog_final_v2_lib"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+description = "Dialog library — Nostr-based encrypted notes-to-self (core Rust SDK)"
+repository = "https://github.com/futurepaul/dialog-final-v2"
+readme = "README.md"
+keywords = ["nostr", "notes", "encryption"]
+categories = ["cryptography::cryptocurrencies", "database", "api-bindings"]
+
+[lib]
+name = "dialog_lib"
 
 [dependencies]
 nostr-sdk = { workspace = true }
@@ -11,9 +20,13 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 directories = { workspace = true }
 keyring = { version = "3", optional = true }
+"nostr-ndb" = "0.37"
+nostrdb = "0.3.4"
 
 [features]
 default = ["keyring"]
 
 [dev-dependencies]
 tokio-test = "0.4"
+portpicker = "0.1"
+serial_test = "3"

@@ -5,6 +5,8 @@ struct InboxView: View {
     @StateObject private var viewModel = InboxViewModel()
     @State private var messageText = ""
     @State private var showingTopicPicker = false
+    @State private var showingSettings = false
+    @State private var showingSearch = false
     @FocusState private var isInputFocused: Bool
     @State private var lastVisibleNoteId: String?
     
@@ -17,23 +19,39 @@ struct InboxView: View {
                 // Navigation bar
                 NavigationBar(
                     showingTopicPicker: $showingTopicPicker,
-                    currentTag: viewModel.currentTag
+                    currentTag: viewModel.currentTag,
+                    onSearchTapped: { showingSearch = true }
                 )
                 
                 // Messages list
                 ScrollViewReader { proxy in
                     ScrollView {
+                        if viewModel.displayedNotes.isEmpty {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Welcome!")
+                                    .font(.title2).bold()
+                                Text("Start writing notes. Everything is encrypted and saved to the cloud.")
+                                Text("If you want to connect other devices or use an existing account type \"/setup\"")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding()
+                        }
+                        // No inline search; search lives in a separate sheet
                         LazyVStack(spacing: 2) {
                             ForEach(Array(viewModel.displayedNotes.enumerated()), id: \.element.id) { index, note in
                                 NoteBubble(
                                     note: note,
                                     position: viewModel.bubblePosition(for: index),
-                                    onTap: { viewModel.selectNote(note) }
+                                    onTap: { viewModel.selectNote(note) },
+                                    onTagTap: { tag in
+                                        viewModel.setTagFilter(tag)
+                                    }
                                 )
                                 .id(note.id)
                                 .onAppear {
                                     // Track the last visible note for scroll position
                                     lastVisibleNoteId = note.id
+                                    viewModel.noteAppeared(note)
                                 }
                             }
                         }
@@ -80,7 +98,12 @@ struct InboxView: View {
                 InputBar(
                     text: $messageText,
                     onSend: {
-                        viewModel.createNote(text: messageText)
+                        let trimmed = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if trimmed == "/setup" {
+                            showingSettings = true
+                        } else {
+                            viewModel.createNote(text: trimmed)
+                        }
                         messageText = ""
                     },
                     isEnabled: !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -91,12 +114,19 @@ struct InboxView: View {
             TopicPickerView(
                 selectedTag: $viewModel.currentTag,
                 allTags: viewModel.allTags,
-                allNotes: viewModel.notes,
+                tagCounts: viewModel.tagCounts,
                 dismiss: { showingTopicPicker = false },
                 onTagSelected: { tag in
                     viewModel.setTagFilter(tag)
-                }
+                },
+                onShowSettings: { showingSettings = true }
             )
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView(viewModel: viewModel, dismiss: { showingSettings = false })
+        }
+        .sheet(isPresented: $showingSearch) {
+            SearchSheet(initialNotes: viewModel.fetchAllNotesSnapshot(), dismiss: { showingSearch = false })
         }
     }
 }

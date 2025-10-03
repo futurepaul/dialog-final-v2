@@ -32,6 +32,8 @@ targets:
       - path: DialogApp/Sources
         name: Sources
         createIntermediateGroups: true
+      - path: DialogApp/AppIcon.icon
+        name: AppIcon
       - path: DialogApp/Resources
         name: Resources
         createIntermediateGroups: true

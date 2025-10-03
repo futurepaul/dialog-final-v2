@@ -89,6 +89,83 @@ impl Dialog {
         self.client.sync(filter, &SyncOptions::default()).await?;
         Ok(())
     }
+
+    /// Plain NIP-01 subscribe/fetch fallback for relays without Negentropy
+    pub async fn sync_notes_plain(&self, limit: Option<usize>) -> Result<()> {
+        // Build a standard filter. If a limit is provided, apply it.
+        let mut filter = Filter::new()
+            .author(self.keys.public_key())
+            .kind(Kind::from(1059));
+        if let Some(lim) = limit {
+            filter = filter.limit(lim);
+        }
+
+        // Fetch a snapshot of events and persist to local DB
+        // Try a reasonable timeout; network errors are surfaced as DialogError::Database via save.
+        let events = self
+            .client
+            .fetch_events(vec![filter], Some(std::time::Duration::from_secs(10)))
+            .await
+            .map_err(|e| DialogError::Database(e.to_string()))?;
+
+        for event in events {
+            // Save to local DB; ignore duplicates
+            self.client
+                .database()
+                .save_event(&event)
+                .await
+                .map_err(|e| DialogError::Database(e.to_string()))?;
+        }
+        Ok(())
+    }
+
+    pub async fn get_note(&self, id: &EventId) -> Result<Option<Note>> {
+        let filter = Filter::new()
+            .author(self.keys.public_key())
+            .kind(Kind::from(1059))
+            .ids(vec![*id])
+            .limit(1);
+
+        let events = self
+            .client
+            .database()
+            .query(vec![filter])
+            .await
+            .map_err(|e| DialogError::Database(e.to_string()))?;
+
+        for event in events {
+            if event.id == *id {
+                if let Ok(decrypted) = self.decrypt_event(&event) {
+                    let is_read = self.get_read_status(&event.id).await;
+                    return Ok(Some(Note {
+                        id: event.id,
+                        text: decrypted,
+                        tags: extract_tags(&event),
+                        created_at: event.created_at,
+                        is_read,
+                        is_synced: true,
+                    }));
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
+    pub async fn latest_note_timestamp(&self) -> Result<Option<Timestamp>> {
+        let filter = Filter::new()
+            .author(self.keys.public_key())
+            .kind(Kind::from(1059));
+
+        let events = self
+            .client
+            .database()
+            .query(vec![filter])
+            .await
+            .map_err(|e| DialogError::Database(e.to_string()))?;
+
+        Ok(events.into_iter().map(|event| event.created_at).max())
+    }
 }
 
 fn extract_tags(event: &Event) -> Vec<String> {
